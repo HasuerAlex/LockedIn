@@ -37,4 +37,4 @@ Datenmodell: `users/{uid}/data/{goal|plans|habits|habitLog}` – jede Person sie
 Lokal testen mit dem Firebase-Emulator: `VITE_FIREBASE_EMULATOR=1 npm run dev` (Emulator für Auth und Firestore muss laufen).
 
 ## Online
-Live-Version: https://hasueralex.github.io/athleten-dashboard/ – wird bei jedem Push auf `main` automatisch über GitHub Actions neu gebaut und veröffentlicht.
+Live-Version: https://hasueralex.github.io/LockedIn/ – wird bei jedem Push auf `main` automatisch über GitHub Actions neu gebaut und veröffentlicht.
