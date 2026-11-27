@@ -20,6 +20,9 @@ export default function HabitTracker({ weekStart, today, habits, setHabits, log,
   const [newHabit, setNewHabit] = useState('')
   const [newIcon, setNewIcon] = useState(null) // null = Vorschlag nach Name
   const [iconPickerFor, setIconPickerFor] = useState(null) // Habit-ID, deren Icon gerade geändert wird
+  const [adding, setAdding] = useState(false) // Eingabefeld aktiv → Vorschläge zeigen
+  const existing = new Set(habits.map((h) => h.name.trim().toLowerCase()))
+  const suggestions = HABIT_SUGGESTIONS.filter((sug) => !existing.has(sug.name.toLowerCase()))
   const newIconKey = newIcon ?? suggestIcon(newHabit)
   const NewIcon = HABIT_ICONS[newIconKey].icon
   const todayKey = toKey(today)
@@ -43,6 +46,8 @@ export default function HabitTracker({ weekStart, today, habits, setHabits, log,
     setNewHabit('')
     setNewIcon(null)
   }
+
+  const addSuggestion = (sug) => setHabits((h) => [...h, { id: uid(), name: sug.name, icon: sug.icon }])
 
   const setIcon = (habitId, icon) => {
     setHabits((list) => list.map((h) => (h.id === habitId ? { ...h, icon } : h)))
@@ -127,7 +132,7 @@ export default function HabitTracker({ weekStart, today, habits, setHabits, log,
                         <Icon className="size-5" aria-hidden />
                       </span>
                     </button>
-                    <p className="min-w-0 flex-1 truncate text-headline font-semibold">{h.name}</p>
+                    <p className="min-w-0 flex-1 text-headline font-semibold [overflow-wrap:anywhere]">{h.name}</p>
                     <span
                       className={`inline-flex items-center gap-1 text-subhead tabular-nums ${
                         streak > 0 ? 'font-semibold text-label' : 'text-label-2'
@@ -191,7 +196,11 @@ export default function HabitTracker({ weekStart, today, habits, setHabits, log,
           </ul>
         )}
 
-        <form onSubmit={addHabit} className="mt-3 border-t border-separator pt-4">
+        <form
+          onSubmit={addHabit}
+          onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && setAdding(false)}
+          className="mt-3 border-t border-separator pt-4"
+        >
           <div className="flex items-center gap-2">
           <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-fill text-label" aria-hidden>
             <NewIcon className="size-5" />
@@ -203,7 +212,8 @@ export default function HabitTracker({ weekStart, today, habits, setHabits, log,
             id="new-habit"
             value={newHabit}
             onChange={(e) => setNewHabit(e.target.value)}
-            placeholder="Neue Routine, z. B. Dehnen"
+            onFocus={() => setAdding(true)}
+            placeholder="Neue Routine"
             enterKeyHint="done"
             className="min-w-0 flex-1 rounded-xl border border-separator bg-bg px-3 py-2.5 text-body outline-none focus:border-label"
           />
@@ -216,8 +226,36 @@ export default function HabitTracker({ weekStart, today, habits, setHabits, log,
             <Plus className="size-5" />
           </button>
           </div>
-          {newHabit.trim() && (
+          {newHabit.trim() ? (
             <IconPicker label="Symbol für die neue Routine" value={newIconKey} onChange={setNewIcon} className="mt-3" />
+          ) : (
+            adding &&
+            suggestions.length > 0 && (
+              <div className="mt-3">
+                <p className="text-footnote text-label-2">Vorschläge</p>
+                <ul className="mt-1.5 flex flex-wrap gap-2">
+                  {suggestions.map((sug) => {
+                    const Icon = HABIT_ICONS[sug.icon].icon
+                    return (
+                      <li key={sug.name}>
+                        <button
+                          type="button"
+                          // Fokus im Eingabefeld lassen, damit die Vorschläge offen bleiben
+                          onPointerDown={(e) => e.preventDefault()}
+                          onClick={() => addSuggestion(sug)}
+                          aria-label={`${sug.name} hinzufügen`}
+                          className="inline-flex h-11 items-center gap-2 rounded-full bg-fill pr-4 pl-3 text-subhead font-semibold hover:opacity-80"
+                        >
+                          <Icon className="size-[18px]" aria-hidden />
+                          {sug.name}
+                          <Plus className="size-4 text-label-2" aria-hidden />
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )
           )}
         </form>
       </div>
@@ -253,10 +291,23 @@ function IconPicker({ label, value, onChange, className = '' }) {
 
 /** Grundpunkte – Startliste für alle, die noch keine eigenen Habits haben */
 export const DEFAULT_HABITS = [
-  { id: 'water', name: 'Wasser getrunken', icon: 'water' },
+  { id: 'water', name: '3L Wasser getrunken', icon: 'water' },
   { id: 'sport', name: 'Sport gemacht', icon: 'sport' },
-  { id: 'sleep', name: 'Genug geschlafen', icon: 'sleep' },
+  { id: 'sleep', name: '8h geschlafen', icon: 'sleep' },
 ]
+
+/** Vorschläge beim Hinzufügen einer neuen Routine */
+export const HABIT_SUGGESTIONS = [
+  { name: 'Protein-Ziel erreicht', icon: 'protein' },
+  { name: 'Supplements genommen', icon: 'supplements' },
+  { name: 'Kein Alkohol', icon: 'no' },
+]
+
+/** Frühere Namen der Grundpunkte → werden in bestehenden Konten umbenannt */
+const RENAMED = { water: 'Wasser getrunken', sleep: 'Genug geschlafen' }
+export const needsRename = (habits) => habits.some((h) => RENAMED[h.id] === h.name)
+export const renameDefaults = (habits) =>
+  habits.map((h) => (RENAMED[h.id] === h.name ? { ...h, name: DEFAULT_HABITS.find((d) => d.id === h.id).name } : h))
 
 /** Alte Standardliste früherer Versionen (8 h Schlaf, 3 l Wasser, Mobility, Protein-Ziel) */
 export const isOldDefaultHabits = (habits) => habits.map((h) => h.id).join() === 'sleep,water,mobility,protein'
