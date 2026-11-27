@@ -3,7 +3,11 @@ import { Download, FlaskConical } from 'lucide-react'
 // Zeigt immer auf die neueste Version im Release des LockedIn-Repos
 export const PAINLAB_URL = 'https://github.com/HasuerAlex/LockedIn/releases/latest/download/PainLab.exe'
 
+// Erst einschalten, wenn PainLab.exe im Release liegt – sonst führt der Knopf ins Leere
+export const PAINLAB_RELEASED = false
+
 export default function PainLabCard() {
+  if (!PAINLAB_RELEASED) return null
   return (
     <section aria-labelledby="painlab-title" className="space-y-4">
       <h2 id="painlab-title" className="px-1 text-title-2 font-bold">
