@@ -38,6 +38,8 @@ export default function App() {
   const [plans, setPlans] = useSyncedState('plans', {}, user, onSyncError)
   const [habits, setHabits] = useSyncedState('habits', DEFAULT_HABITS, user, onSyncError)
   const [habitLog, setHabitLog] = useSyncedState('habitLog', {}, user, onSyncError)
+  const [recurring, setRecurring] = useSyncedState('recurring', [], user, onSyncError)
+  const [recurringState, setRecurringState] = useSyncedState('recurringState', {}, user, onSyncError)
 
   // Einmalige Umstellung: unveränderte alte Standard-Habits durch die neuen Grundpunkte ersetzen
   // (gleiche IDs für Wasser und Schlaf → deren Verlauf bleibt erhalten)
@@ -117,7 +119,17 @@ export default function App() {
         </nav>
 
         <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-8 lg:grid-cols-[minmax(0,1fr)_400px]">
-          <WeeklyPlan weekStart={weekStart} today={today} plans={plans} setPlans={setPlans} onDeleted={onDeleted} />
+          <WeeklyPlan
+            weekStart={weekStart}
+            today={today}
+            plans={plans}
+            setPlans={setPlans}
+            recurring={recurring}
+            setRecurring={setRecurring}
+            recurringState={recurringState}
+            setRecurringState={setRecurringState}
+            onDeleted={onDeleted}
+          />
           <div className="lg:sticky lg:top-6">
             <HabitTracker
               weekStart={weekStart}

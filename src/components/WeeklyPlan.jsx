@@ -1,17 +1,61 @@
 import { useEffect, useState } from 'react'
-import { Plus, Check, Trash2, Copy } from 'lucide-react'
+import { Plus, Check, Trash2, Copy, Repeat } from 'lucide-react'
 import { SPORTS, WEEKDAYS, WEEKDAYS_LONG, addDays, fmtDate, fmtDuration, fmtHours, toKey, uid } from '../lib/utils'
 
-export default function WeeklyPlan({ weekStart, today, plans, setPlans, onDeleted }) {
+/** Wiederkehrende Einheit gilt in Woche `weekKey`, wenn sie seit dann läuft und nicht beendet wurde */
+const activeIn = (weekKey) => (r) => r.since <= weekKey && (!r.until || weekKey < r.until)
+
+export default function WeeklyPlan({ weekStart, today, plans, setPlans, recurring, setRecurring, recurringState, setRecurringState, onDeleted }) {
   const weekKey = toKey(weekStart)
-  const sessions = plans[weekKey] ?? []
+  const ownSessions = plans[weekKey] ?? []
+  const weekState = recurringState[weekKey] ?? {}
+  // Wiederkehrende Einheiten dieser Woche (Erledigt/Übersprungen gilt jeweils nur für diese Woche)
+  const recurringSessions = recurring
+    .filter(activeIn(weekKey))
+    .filter((r) => weekState[r.id] !== 'skipped')
+    .map((r) => ({ ...r, done: weekState[r.id] === 'done', recurring: true }))
+  const sessions = [...recurringSessions, ...ownSessions]
   const [sheetDay, setSheetDay] = useState(null) // null = Sheet geschlossen
+  const [deleting, setDeleting] = useState(null) // wiederkehrende Einheit, für die gerade gefragt wird
+
+  const setWeekState = (id, value) =>
+    setRecurringState((st) => {
+      const week = { ...(st[weekKey] ?? {}) }
+      if (value) week[id] = value
+      else delete week[id]
+      return { ...st, [weekKey]: week }
+    })
 
   const updateWeek = (fn) => setPlans((p) => ({ ...p, [weekKey]: fn(p[weekKey] ?? []) }))
-  const toggle = (id) => updateWeek((list) => list.map((s) => (s.id === id ? { ...s, done: !s.done } : s)))
-  const add = (session) => updateWeek((list) => [...list, { ...session, id: uid(), done: false }])
+  const toggle = (session) =>
+    session.recurring
+      ? setWeekState(session.id, session.done ? null : 'done')
+      : updateWeek((list) => list.map((s) => (s.id === session.id ? { ...s, done: !s.done } : s)))
+  const add = ({ repeat, ...session }) =>
+    repeat
+      ? setRecurring((list) => [...list, { ...session, id: uid(), since: weekKey }])
+      : updateWeek((list) => [...list, { ...session, id: uid(), done: false }])
+
+  // Wiederkehrend: nur in dieser Woche auslassen …
+  const skipThisWeek = (session) => {
+    const before = weekState[session.id] ?? null
+    setWeekState(session.id, 'skipped')
+    onDeleted(`„${session.title}“ diese Woche entfernt`, () => setWeekState(session.id, before))
+  }
+  // … oder ab dieser Woche beenden (frühere Wochen bleiben, wie sie waren)
+  const endFromThisWeek = (session) => {
+    const original = recurring.find((r) => r.id === session.id)
+    const update = (until) => setRecurring((list) => list.map((r) => (r.id === session.id ? { ...r, until } : r)))
+    if (original.since >= weekKey) setRecurring((list) => list.filter((r) => r.id !== session.id))
+    else update(weekKey)
+    onDeleted(`„${session.title}“ ab dieser Woche gelöscht`, () =>
+      setRecurring((list) => (list.some((r) => r.id === original.id) ? list.map((r) => (r.id === original.id ? original : r)) : [...list, original])),
+    )
+  }
+
   const remove = (session) => {
-    const index = sessions.findIndex((s) => s.id === session.id)
+    if (session.recurring) return setDeleting(session)
+    const index = ownSessions.findIndex((s) => s.id === session.id)
     updateWeek((list) => list.filter((s) => s.id !== session.id))
     onDeleted(`„${session.title}“ gelöscht`, () =>
       setPlans((p) => {
@@ -22,7 +66,7 @@ export default function WeeklyPlan({ weekStart, today, plans, setPlans, onDelete
     )
   }
 
-  const prevSessions = plans[toKey(addDays(weekStart, -7))] ?? []
+  const prevSessions = plans[toKey(addDays(weekStart, -7))] ?? [] // nur einmalige Einheiten
   const copyPrevWeek = () => updateWeek(() => prevSessions.map((s) => ({ ...s, id: uid(), done: false })))
 
   const plannedMin = sessions.reduce((a, s) => a + s.duration, 0)
@@ -153,7 +197,7 @@ export default function WeeklyPlan({ weekStart, today, plans, setPlans, onDelete
               ) : (
                 <ul className="pb-2">
                   {daySessions.map((s) => (
-                    <SessionRow key={s.id} s={s} onToggle={() => toggle(s.id)} onDelete={() => remove(s)} />
+                    <SessionRow key={s.id} s={s} onToggle={() => toggle(s)} onDelete={() => remove(s)} />
                   ))}
                 </ul>
               )}
@@ -170,6 +214,17 @@ export default function WeeklyPlan({ weekStart, today, plans, setPlans, onDelete
             add(s)
             setSheetDay(null)
           }}
+        />
+      )}
+
+      {deleting && (
+        <ActionSheet
+          title={`„${deleting.title}“ wiederholt sich jede Woche.`}
+          onClose={() => setDeleting(null)}
+          actions={[
+            { label: 'Nur diese Woche entfernen', onSelect: () => skipThisWeek(deleting) },
+            { label: 'Ab dieser Woche löschen', onSelect: () => endFromThisWeek(deleting), destructive: true },
+          ]}
         />
       )}
     </section>
@@ -212,6 +267,15 @@ function SessionRow({ s, onToggle, onDelete }) {
               <span>{String(s.distance).replace('.', ',')} km</span>
             </>
           ) : null}
+          {s.recurring && (
+            <>
+              <span aria-hidden>·</span>
+              <span className="inline-flex items-center gap-1">
+                <Repeat className="size-3.5" aria-hidden />
+                Wöchentlich
+              </span>
+            </>
+          )}
         </p>
       </div>
 
@@ -227,7 +291,7 @@ function SessionRow({ s, onToggle, onDelete }) {
 }
 
 function AddSessionSheet({ defaultDay, onClose, onAdd }) {
-  const [form, setForm] = useState({ day: defaultDay, sport: 'run', title: '', duration: '60', distance: '' })
+  const [form, setForm] = useState({ day: defaultDay, sport: 'run', title: '', duration: '60', distance: '', repeat: false })
 
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose()
@@ -255,6 +319,7 @@ function AddSessionSheet({ defaultDay, onClose, onAdd }) {
       title: form.title.trim() || `${SPORTS[form.sport].label}-Einheit`,
       duration,
       distance: form.sport === 'strength' ? null : distance,
+      repeat: form.repeat,
     })
   }
 
@@ -388,8 +453,77 @@ function AddSessionSheet({ defaultDay, onClose, onAdd }) {
               {durationError || distanceError}
             </p>
           )}
+
+          <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-2xl bg-bg px-4 py-2">
+            <Repeat className="size-5 shrink-0 text-label-2" aria-hidden />
+            <span className="flex-1">
+              <span className="block text-body">Jede Woche wiederholen</span>
+              <span className="block text-footnote text-label-2">
+                Ab dieser Woche jeden {WEEKDAYS_LONG[Number(form.day)]}
+              </span>
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={form.repeat}
+              aria-label="Jede Woche wiederholen"
+              onClick={() => setForm({ ...form, repeat: !form.repeat })}
+              className={`relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors ${form.repeat ? 'bg-label' : 'bg-fill ring-1 ring-separator'}`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 size-[27px] rounded-full bg-surface shadow transition-transform ${
+                  form.repeat ? 'translate-x-5' : ''
+                }`}
+              />
+            </button>
+          </label>
         </div>
       </form>
+    </div>
+  )
+}
+
+/** Auswahl mit mehreren Aktionen, unten eingeblendet (wie ein iOS-Aktionsblatt) */
+function ActionSheet({ title, actions, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onClose()
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-3 sm:items-center" onClick={onClose}>
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="action-title"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-sm space-y-2 pb-[env(safe-area-inset-bottom)]"
+      >
+        <div className="overflow-hidden rounded-2xl bg-surface">
+          <p id="action-title" className="px-4 py-3 text-center text-footnote text-label-2">
+            {title}
+          </p>
+          {actions.map((a, i) => (
+            <button
+              key={a.label}
+              autoFocus={i === 0}
+              onClick={() => {
+                a.onSelect()
+                onClose()
+              }}
+              className={`block h-14 w-full border-t border-separator text-body hover:bg-fill ${
+                a.destructive ? 'font-semibold text-[#d70015] dark:text-[#ff6961]' : 'text-label'
+              }`}
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+        <button onClick={onClose} className="block h-14 w-full rounded-2xl bg-surface text-body font-semibold hover:bg-fill">
+          Abbrechen
+        </button>
+      </div>
     </div>
   )
 }
