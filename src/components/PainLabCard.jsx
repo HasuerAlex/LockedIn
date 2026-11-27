@@ -19,8 +19,8 @@ export default function PainLabCard() {
             <FlaskConical className="size-6" />
           </span>
           <div className="min-w-0">
-            <p className="text-headline font-semibold">PainLab für Windows</p>
-            <p className="text-subhead text-label-2">Die Desktop-App aus dem WattLab-Projekt.</p>
+            <p className="text-headline font-semibold">PainLab</p>
+            <p className="text-subhead text-label-2">Rennrad-Indoor-Trainer</p>
           </div>
         </div>
         <a
