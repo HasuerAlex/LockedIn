@@ -15,3 +15,6 @@ npm run build    # Produktions-Build nach dist/
 - `src/components/WeeklyPlan.jsx` – Wochenplan Mo–So, Zusammenfassung, Modal zum Hinzufügen
 - `src/components/HabitTracker.jsx` – Habits, Wochenraster, Streaks
 - `src/lib/utils.js` – `useLocalStorage`, Datums-Helfer, Sportarten-Farben
+
+## Online
+Live-Version: https://hasueralex.github.io/athleten-dashboard/ – wird bei jedem Push auf `main` automatisch über GitHub Actions neu gebaut und veröffentlicht.
