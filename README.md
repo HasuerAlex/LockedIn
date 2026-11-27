@@ -37,4 +37,6 @@ Datenmodell: `users/{uid}/data/{goal|plans|habits|habitLog}` – jede Person sie
 Lokal testen mit dem Firebase-Emulator: `VITE_FIREBASE_EMULATOR=1 npm run dev` (Emulator für Auth und Firestore muss laufen).
 
 ## Online
-Live-Version: https://hasueralex.github.io/LockedIn/ – wird bei jedem Push auf `main` automatisch über GitHub Actions neu gebaut und veröffentlicht.
+Live-Version: **https://lockedin-habit.web.app** (Firebase Hosting), zusätzlich https://hasueralex.github.io/LockedIn/.
+Bei jedem Push auf `main` baut GitHub Actions die App und veröffentlicht sie an beiden Orten.
+Für Firebase braucht das Repo das Secret `FIREBASE_SERVICE_ACCOUNT` (privater Schlüssel eines Dienstkontos aus den Firebase-Projekteinstellungen).
