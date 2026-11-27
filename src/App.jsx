@@ -5,6 +5,7 @@ import WeeklyPlan from './components/WeeklyPlan'
 import HabitTracker, { DEFAULT_HABITS, isOldDefaultHabits, needsRename, renameDefaults } from './components/HabitTracker'
 import AccountBar from './components/AccountBar'
 import Brand from './components/Brand'
+import PainLabCard from './components/PainLabCard'
 import { useAuth, useSyncedState } from './lib/sync'
 import { mondayOf, addDays, toKey, fmtDate, isoWeek, startOfDay } from './lib/utils'
 
@@ -130,7 +131,7 @@ export default function App() {
             setRecurringState={setRecurringState}
             onDeleted={onDeleted}
           />
-          <div className="lg:sticky lg:top-6">
+          <div className="space-y-8">
             <HabitTracker
               weekStart={weekStart}
               today={today}
@@ -140,6 +141,7 @@ export default function App() {
               setLog={setHabitLog}
               onDeleted={onDeleted}
             />
+            <PainLabCard />
           </div>
         </div>
 
