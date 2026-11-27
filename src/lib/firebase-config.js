@@ -18,4 +18,4 @@ export const firebaseConfig = {
  * Öffentlicher Schlüssel für Web-Push (Firebase-Konsole → Projekteinstellungen → Cloud Messaging →
  * Web-Push-Zertifikate → Schlüsselpaar generieren). Nicht geheim. Ohne ihn sind Push-Benachrichtigungen aus.
  */
-export const vapidKey = null
+export const vapidKey = 'BABkas_ThJYEkwORfxl0f-ncnP5IkM3VThl2VyyRfXN2MZFjYlYklWFOFGKXPI4y0_Nv_KUTdThWLSZJ7MhkL9g'
