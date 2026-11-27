@@ -1,10 +1,10 @@
 import { Download, FlaskConical } from 'lucide-react'
 
 // Zeigt immer auf die neueste Version im Release des LockedIn-Repos
-export const PAINLAB_URL = 'https://github.com/HasuerAlex/LockedIn/releases/latest/download/PainLab.exe'
+export const PAINLAB_URL = 'https://github.com/HasuerAlex/LockedIn/releases/latest/download/PainLab-Setup.exe'
 
 // Erst einschalten, wenn PainLab.exe im Release liegt – sonst führt der Knopf ins Leere
-export const PAINLAB_RELEASED = false
+export const PAINLAB_RELEASED = true
 
 export default function PainLabCard() {
   if (!PAINLAB_RELEASED) return null
@@ -28,10 +28,10 @@ export default function PainLabCard() {
           download
           className="mt-4 flex h-11 items-center justify-center gap-2 rounded-full bg-label px-5 text-headline font-semibold text-on-label hover:opacity-85 active:opacity-70"
         >
-          <Download className="size-5" aria-hidden /> PainLab.exe herunterladen
+          <Download className="size-5" aria-hidden /> PainLab herunterladen
         </a>
         <p className="mt-3 text-footnote text-label-2">
-          Windows zeigt beim ersten Start eventuell „Der Computer wurde durch Windows geschützt“. Dann auf „Weitere Informationen“ und
+          Installationsprogramm für Windows (37 MB). Windows zeigt beim ersten Start eventuell „Der Computer wurde durch Windows geschützt“. Dann auf „Weitere Informationen“ und
           „Trotzdem ausführen“ klicken.
         </p>
       </div>
