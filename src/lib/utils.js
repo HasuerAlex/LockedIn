@@ -1,31 +1,4 @@
-import { useEffect, useState } from 'react'
 import { Waves, Bike, Footprints, Dumbbell } from 'lucide-react'
-
-/* ---------- localStorage ---------- */
-
-const PREFIX = 'athlete-dashboard:'
-
-export function useLocalStorage(key, initialValue) {
-  const [value, setValue] = useState(() => {
-    try {
-      const raw = localStorage.getItem(PREFIX + key)
-      if (raw !== null) return JSON.parse(raw)
-    } catch {
-      /* ignore broken / unavailable storage */
-    }
-    return typeof initialValue === 'function' ? initialValue() : initialValue
-  })
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(PREFIX + key, JSON.stringify(value))
-    } catch {
-      /* storage full or blocked */
-    }
-  }, [key, value])
-
-  return [value, setValue]
-}
 
 /* ---------- Datum ---------- */
 

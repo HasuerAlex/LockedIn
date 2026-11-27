@@ -63,7 +63,7 @@ export default function AccountBar({ user, ready, error, clearError }) {
           </>
         ) : (
           <>
-            <p className="mr-auto text-subhead text-label-2">Nur auf diesem Gerät gespeichert</p>
+            <p className="mr-auto text-subhead text-label-2">Nicht angemeldet – Änderungen werden nicht gespeichert</p>
             <button onClick={login} disabled={busy} className={pill}>
               <GoogleMark /> Mit Google anmelden
             </button>

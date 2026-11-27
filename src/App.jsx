@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, Undo2, X } from 'lucide-react'
-import GoalBanner, { defaultGoal } from './components/GoalBanner'
-import WeeklyPlan, { samplePlan } from './components/WeeklyPlan'
-import HabitTracker, { DEFAULT_HABITS } from './components/HabitTracker'
+import GoalBanner from './components/GoalBanner'
+import WeeklyPlan from './components/WeeklyPlan'
+import HabitTracker from './components/HabitTracker'
 import AccountBar from './components/AccountBar'
 import { useAuth, useSyncedState } from './lib/sync'
 import { mondayOf, addDays, toKey, fmtDate, isoWeek, startOfDay } from './lib/utils'
@@ -33,9 +33,9 @@ export default function App() {
   const { user, ready: authReady } = useAuth()
   const [syncError, setSyncError] = useState(null)
   const onSyncError = useCallback((e) => setSyncError(e?.code || e?.message || 'unbekannt'), [])
-  const [goal, setGoal] = useSyncedState('goal', () => defaultGoal(today), user, onSyncError)
-  const [plans, setPlans] = useSyncedState('plans', () => ({ [toKey(currentMonday)]: samplePlan() }), user, onSyncError)
-  const [habits, setHabits] = useSyncedState('habits', DEFAULT_HABITS, user, onSyncError)
+  const [goal, setGoal] = useSyncedState('goal', null, user, onSyncError)
+  const [plans, setPlans] = useSyncedState('plans', {}, user, onSyncError)
+  const [habits, setHabits] = useSyncedState('habits', [], user, onSyncError)
   const [habitLog, setHabitLog] = useSyncedState('habitLog', {}, user, onSyncError)
 
   // Widerrufen-Stapel: Löschen fragt nicht nach, lässt sich aber rückgängig machen.
@@ -62,6 +62,8 @@ export default function App() {
   const isCurrentWeek = toKey(weekStart) === toKey(currentMonday)
   const weekEnd = addDays(weekStart, 6)
   const lastUndo = undoStack.at(-1)
+
+  if (!authReady) return <div className="min-h-dvh" aria-busy="true" />
 
   return (
     <div className="min-h-dvh pb-28">
@@ -120,8 +122,7 @@ export default function App() {
           </div>
         </div>
 
-        <footer className="text-center text-footnote text-label-2">Deine Daten bleiben in diesem Browser.</footer>
-      </main>
+              </main>
 
       {lastUndo && (
         <div

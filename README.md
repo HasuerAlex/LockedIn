@@ -1,7 +1,7 @@
 # Athleten-Dashboard
 
 Trainingsplan + Habit-Tracker für die Triathlon-/Ironman-Vorbereitung.
-React · Tailwind CSS v4 · Lucide-Icons · Vite. Alle Daten liegen im `localStorage` (Präfix `athlete-dashboard:`).
+React · Tailwind CSS v4 · Lucide-Icons · Vite. Daten werden nach Google-Anmeldung in Firebase gespeichert (siehe unten).
 
 ```bash
 npm install
@@ -19,8 +19,9 @@ npm run build    # Produktions-Build nach dist/
 - `src/components/AccountBar.jsx` – Anmelden/Abmelden und Sync-Status
 
 ## Geräteübergreifend speichern (Firebase)
-Mit Google-Anmeldung werden alle Daten in Firebase Firestore gespeichert und auf allen Geräten synchronisiert
-(auch offline – Änderungen werden nachgeladen). Ohne Konfiguration läuft die App nur mit dem Browser-Speicher.
+Gespeichert wird nur mit Google-Anmeldung: Alle Daten liegen in Firebase Firestore und werden auf allen Geräten
+synchronisiert (auch offline – Änderungen werden nachgeladen). Ohne Anmeldung startet die App leer und speichert nichts;
+beim Abmelden werden die Daten vom Gerät entfernt.
 
 Einrichtung (einmalig):
 1. https://console.firebase.google.com → **Projekt hinzufügen** (Google Analytics ist nicht nötig).

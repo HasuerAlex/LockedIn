@@ -57,6 +57,7 @@ export default function WeeklyPlan({ weekStart, today, plans, setPlans, onDelete
       </div>
 
       {/* Zusammenfassung */}
+      {sessions.length > 0 && (
       <div className="rounded-3xl bg-surface p-5">
         <p className="text-subhead text-label-2">Trainingsstunden diese Woche</p>
         <p className="mt-0.5 text-title-2 font-bold tabular-nums">
@@ -96,12 +97,14 @@ export default function WeeklyPlan({ weekStart, today, plans, setPlans, onDelete
           </ul>
         )}
       </div>
+      )}
 
       {sessions.length === 0 && (
         <div className="rounded-3xl bg-surface p-5 text-subhead text-label-2">
-          <p>Für diese Woche ist noch nichts geplant.</p>
+          <p>Für diese Woche ist noch nichts geplant. Füg mit „+“ deine erste Einheit hinzu.</p>
+          {prevSessions.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2">
-            {prevSessions.length > 0 && (
+            {(
               <button
                 onClick={copyPrevWeek}
                 className="inline-flex h-11 items-center gap-2 rounded-full bg-fill px-4 font-semibold text-label hover:opacity-80"
@@ -110,6 +113,7 @@ export default function WeeklyPlan({ weekStart, today, plans, setPlans, onDelete
               </button>
             )}
           </div>
+          )}
         </div>
       )}
 
@@ -145,7 +149,7 @@ export default function WeeklyPlan({ weekStart, today, plans, setPlans, onDelete
               </div>
 
               {daySessions.length === 0 ? (
-                <p className="pb-4 pl-5 text-subhead text-label-2">Ruhetag</p>
+                <p className="pb-4 pl-5 text-subhead text-label-2">Nichts geplant</p>
               ) : (
                 <ul className="pb-2">
                   {daySessions.map((s) => (
@@ -388,22 +392,4 @@ function AddSessionSheet({ defaultDay, onClose, onAdd }) {
       </form>
     </div>
   )
-}
-
-/** Beispielwoche für den ersten Start */
-export function samplePlan() {
-  const s = (day, sport, title, duration, distance = null) => ({ id: uid(), day, sport, title, duration, distance, done: false })
-  return [
-    s(0, 'swim', 'Technik & Drills', 60, 2.5),
-    s(0, 'strength', 'Core & Stabi', 30),
-    s(1, 'bike', 'Sweet-Spot-Intervalle', 90, 45),
-    s(2, 'run', 'Lockerer Dauerlauf', 50, 9),
-    s(2, 'swim', 'Ausdauer 10 × 200 m', 60, 3),
-    s(3, 'bike', 'Grundlage auf der Rolle', 75, 35),
-    s(3, 'strength', 'Beine & Hüfte', 40),
-    s(4, 'swim', 'Freiwasser-Simulation', 45, 2),
-    s(5, 'bike', 'Lange Ausfahrt', 240, 110),
-    s(5, 'run', 'Koppellauf', 25, 5),
-    s(6, 'run', 'Langer Lauf', 110, 20),
-  ]
 }

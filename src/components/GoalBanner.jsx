@@ -16,6 +16,35 @@ const COURSE = [
 export default function GoalBanner({ goal, setGoal, today }) {
   const [editing, setEditing] = useState(false)
 
+  if (!goal) {
+    return (
+      <section aria-labelledby="goal-title" className="rounded-3xl bg-surface p-5 sm:p-8">
+        {editing ? (
+          <GoalForm
+            goal={{ title: '', startDate: toKey(today), targetDate: '' }}
+            onCancel={() => setEditing(false)}
+            onSave={(g) => (setGoal(g), setEditing(false))}
+          />
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 id="goal-title" className="text-title-2 font-bold">
+                Noch kein Ziel
+              </h1>
+              <p className="mt-1 text-subhead text-label-2">Leg deinen Wettkampf fest, dann zählt die App die Tage bis zum Start.</p>
+            </div>
+            <button
+              onClick={() => setEditing(true)}
+              className="h-11 rounded-full bg-label px-5 text-headline font-semibold text-on-label hover:opacity-85 active:opacity-70"
+            >
+              Ziel festlegen
+            </button>
+          </div>
+        )}
+      </section>
+    )
+  }
+
   const start = fromKey(goal.startDate)
   const target = fromKey(goal.targetDate)
   const total = Math.max(1, daysBetween(start, target))
@@ -180,12 +209,4 @@ function GoalForm({ goal, onCancel, onSave }) {
       </div>
     </form>
   )
-}
-
-export function defaultGoal(today) {
-  const start = new Date(today)
-  start.setDate(start.getDate() - 70)
-  const target = new Date(today)
-  target.setDate(target.getDate() + 210)
-  return { title: 'Ironman Vorbereitung', startDate: toKey(start), targetDate: toKey(target) }
 }

@@ -184,10 +184,3 @@ export default function HabitTracker({ weekStart, today, habits, setHabits, log,
     </section>
   )
 }
-
-export const DEFAULT_HABITS = [
-  { id: 'sleep', name: '😴 8 h Schlaf' },
-  { id: 'water', name: '💧 3 l Wasser' },
-  { id: 'mobility', name: '🧘 Mobility' },
-  { id: 'protein', name: '🥩 Protein-Ziel' },
-]
