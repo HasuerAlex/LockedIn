@@ -23,12 +23,12 @@ const ERRORS = {
   'auth/network-request-failed': 'Keine Verbindung zu Google. Versuch es gleich noch einmal.',
 }
 
-export default function AccountBar({ user, ready, error, clearError }) {
+export default function AccountBar({ brand, user, ready, error, clearError }) {
   const online = useOnline()
   const [busy, setBusy] = useState(false)
   const [loginError, setLoginError] = useState(null)
 
-  if (!syncAvailable || !ready) return null
+  if (!syncAvailable || !ready) return <header>{brand}</header>
 
   const login = async () => {
     setBusy(true)
@@ -46,28 +46,30 @@ export default function AccountBar({ user, ready, error, clearError }) {
   const pill = 'inline-flex h-11 items-center gap-2 rounded-full bg-surface px-4 text-subhead font-semibold hover:bg-fill disabled:opacity-50'
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {user ? (
-          <>
-            <p className="mr-auto flex min-w-0 items-center gap-2 text-subhead text-label-2" aria-live="polite">
-              {online ? <Cloud className="size-4 shrink-0" aria-hidden /> : <CloudOff className="size-4 shrink-0" aria-hidden />}
+    <header className="space-y-2">
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          {brand}
+          {user ? (
+            <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-footnote text-label-2" aria-live="polite">
+              {online ? <Cloud className="size-3.5 shrink-0" aria-hidden /> : <CloudOff className="size-3.5 shrink-0" aria-hidden />}
               <span className="truncate">
-                {online ? 'Synchronisiert' : 'Offline – Änderungen werden später synchronisiert'}
+                {online ? 'Synchronisiert' : 'Offline – wird später synchronisiert'}
                 {user.email && <span className="hidden sm:inline"> · {user.email}</span>}
               </span>
             </p>
-            <button onClick={() => signOutUser()} className={pill}>
-              <LogOut className="size-4" aria-hidden /> Abmelden
-            </button>
-          </>
+          ) : (
+            <p className="mt-0.5 text-footnote text-label-2">Nicht angemeldet – Änderungen werden nicht gespeichert</p>
+          )}
+        </div>
+        {user ? (
+          <button onClick={() => signOutUser()} className={`${pill} shrink-0`}>
+            <LogOut className="size-4" aria-hidden /> Abmelden
+          </button>
         ) : (
-          <>
-            <p className="mr-auto text-subhead text-label-2">Nicht angemeldet – Änderungen werden nicht gespeichert</p>
-            <button onClick={login} disabled={busy} className={pill}>
-              <GoogleMark /> Mit Google anmelden
-            </button>
-          </>
+          <button onClick={login} disabled={busy} className={`${pill} shrink-0`}>
+            <GoogleMark /> <span className="sm:hidden">Anmelden</span><span className="hidden sm:inline">Mit Google anmelden</span>
+          </button>
         )}
       </div>
 
@@ -88,7 +90,7 @@ export default function AccountBar({ user, ready, error, clearError }) {
           </button>
         </div>
       )}
-    </div>
+    </header>
   )
 }
 

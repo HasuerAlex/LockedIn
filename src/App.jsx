@@ -4,6 +4,7 @@ import GoalBanner from './components/GoalBanner'
 import WeeklyPlan from './components/WeeklyPlan'
 import HabitTracker, { DEFAULT_HABITS, isOldDefaultHabits, needsRename, renameDefaults } from './components/HabitTracker'
 import AccountBar from './components/AccountBar'
+import Brand from './components/Brand'
 import { useAuth, useSyncedState } from './lib/sync'
 import { mondayOf, addDays, toKey, fmtDate, isoWeek, startOfDay } from './lib/utils'
 
@@ -76,7 +77,7 @@ export default function App() {
   return (
     <div className="min-h-dvh pb-28">
       <main className="mx-auto max-w-6xl space-y-8 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6 lg:pt-6">
-        <AccountBar user={user} ready={authReady} error={syncError} clearError={() => setSyncError(null)} />
+        <AccountBar brand={<Brand />} user={user} ready={authReady} error={syncError} clearError={() => setSyncError(null)} />
         <GoalBanner goal={goal} setGoal={setGoal} today={today} />
 
         {/* Woche – gilt für Training und Habits */}

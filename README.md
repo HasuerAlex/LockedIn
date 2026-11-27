@@ -1,6 +1,6 @@
-# Athleten-Dashboard
+# LockedIn
 
-Trainingsplan + Habit-Tracker für die Triathlon-/Ironman-Vorbereitung.
+LockedIn – Trainingsplan + Habit-Tracker für die Triathlon-/Ironman-Vorbereitung.
 React · Tailwind CSS v4 · Lucide-Icons · Vite. Daten werden nach Google-Anmeldung in Firebase gespeichert (siehe unten).
 
 ```bash
