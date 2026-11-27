@@ -92,11 +92,11 @@ export default function FoodTracker({ today, profile, food, setFood, favorites, 
           <span className="grid size-11 place-items-center rounded-xl bg-fill" aria-hidden>
             <UserRound className="size-6" />
           </span>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 basis-56">
             <p className="text-headline font-semibold">Profil ausfüllen</p>
             <p className="text-subhead text-label-2">Mit Gewicht, Größe und Alter berechnet LockedIn dein Tagesziel und die Verpflegung fürs Training.</p>
           </div>
-          <button onClick={openSettings} className="h-11 rounded-full bg-label px-5 text-headline font-semibold text-on-label hover:opacity-85">
+          <button onClick={openSettings} className="h-11 w-full rounded-full bg-label px-5 text-headline font-semibold text-on-label hover:opacity-85 sm:w-auto">
             Zum Profil
           </button>
         </div>
