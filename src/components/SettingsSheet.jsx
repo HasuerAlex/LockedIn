@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { ACTIVITY_LEVELS, SEXES, bmr, profileComplete } from '../lib/nutrition'
 import { Bell, CalendarCheck, Dumbbell, ListChecks, Share, X } from 'lucide-react'
 import {
   disablePush,
@@ -11,7 +12,7 @@ import {
   useReminders,
 } from '../lib/push'
 
-export default function SettingsSheet({ user, onClose }) {
+export default function SettingsSheet({ user, profile, setProfile, onClose }) {
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
@@ -47,6 +48,7 @@ export default function SettingsSheet({ user, onClose }) {
         </div>
 
         <div className="space-y-6 px-4 pt-2">
+          <Profile profile={profile} setProfile={setProfile} loggedIn={Boolean(user)} />
           {user ? <Notifications uid={user.uid} /> : <p className="rounded-2xl bg-surface p-4 text-subhead text-label-2">Melde dich an, um Erinnerungen zu nutzen.</p>}
         </div>
       </div>
@@ -262,5 +264,85 @@ function Switch({ label, checked, disabled, onChange }) {
     >
       <span className={`absolute top-0.5 left-0.5 size-[27px] rounded-full bg-surface shadow transition-transform ${checked ? 'translate-x-5' : ''}`} />
     </button>
+  )
+}
+
+function Profile({ profile, setProfile, loggedIn }) {
+  const p = profile ?? {}
+  // Zahlen erst beim Verlassen des Felds speichern (spart Schreibvorgänge)
+  const [draft, setDraft] = useState({ weight: p.weight ?? '', height: p.height ?? '', age: p.age ?? '' })
+  useEffect(() => setDraft({ weight: p.weight ?? '', height: p.height ?? '', age: p.age ?? '' }), [p.weight, p.height, p.age])
+  const commit = (key) => {
+    const v = Number(String(draft[key]).replace(',', '.'))
+    const value = v > 0 ? Math.round(v * 10) / 10 : null
+    if (value !== (p[key] ?? null)) setProfile({ ...p, [key]: value })
+  }
+  const field = 'h-11 w-24 rounded-xl border border-separator bg-bg px-3 text-right text-body text-label tabular-nums outline-none focus:border-label'
+  const row = 'flex items-center justify-between gap-3 border-separator px-4 py-2 [&:not(:first-child)]:border-t'
+
+  const Num = ({ k, label, unit, max }) => (
+    <label className={row}>
+      <span className="text-body">{label}</span>
+      <span className="flex items-center gap-2 text-subhead text-label-2">
+        <input
+          inputMode="decimal"
+          value={draft[k]}
+          onChange={(e) => setDraft({ ...draft, [k]: e.target.value.replace(/[^\d.,]/g, '').slice(0, 5) })}
+          onBlur={() => commit(k)}
+          onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+          aria-label={`${label} in ${unit}`}
+          placeholder="–"
+          max={max}
+          className={field}
+        />
+        <span className="w-10">{unit}</span>
+      </span>
+    </label>
+  )
+
+  const Segments = ({ k, options, label }) => (
+    <div className={row}>
+      <span className="text-body">{label}</span>
+      <div role="radiogroup" aria-label={label} className="flex gap-1 rounded-xl bg-fill p-1">
+        {Object.entries(options).map(([key, o]) => {
+          const active = (p[k] ?? (k === 'activity' ? 'low' : 'x')) === key
+          return (
+            <button
+              key={key}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => setProfile({ ...p, [k]: key })}
+              title={o.hint}
+              className={`h-9 rounded-lg px-2.5 text-footnote font-semibold ${active ? 'bg-surface text-label shadow-sm' : 'text-label-2 hover:text-label'}`}
+            >
+              {o.label ?? o}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+
+  return (
+    <section aria-labelledby="profile-title" className="space-y-2">
+      <h3 id="profile-title" className="px-4 text-footnote font-semibold text-label-2">
+        Profil
+      </h3>
+      <div className="overflow-hidden rounded-2xl bg-surface">
+        {Num({ k: 'weight', label: 'Gewicht', unit: 'kg' })}
+        {Num({ k: 'height', label: 'Größe', unit: 'cm' })}
+        {Num({ k: 'age', label: 'Alter', unit: 'Jahre' })}
+        {Segments({ k: 'sex', options: { m: 'M', f: 'W', x: '–' }, label: 'Geschlecht' })}
+        {Segments({ k: 'activity', options: ACTIVITY_LEVELS, label: 'Alltag' })}
+      </div>
+      <p className="px-4 text-footnote text-label-2">
+        {profileComplete(p)
+          ? `Grundumsatz ≈ ${Math.round(bmr(p)).toLocaleString('de-AT')} kcal. Dazu kommen Alltag und Training.`
+          : 'Für Kalorienziel und Verpflegungsplan im Bereich Ernährung.'}
+        {SEXES[p.sex] && p.sex === 'x' && ' Ohne Angabe zum Geschlecht wird ein Mittelwert verwendet.'}
+        {!loggedIn && ' Ohne Anmeldung wird nichts gespeichert.'}
+      </p>
+    </section>
   )
 }

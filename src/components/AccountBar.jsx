@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Cloud, CloudOff, LogOut, Settings } from 'lucide-react'
-import SettingsSheet from './SettingsSheet'
 import { signIn, signOutUser, syncAvailable } from '../lib/sync'
 
 function useOnline() {
@@ -24,11 +23,10 @@ const ERRORS = {
   'auth/network-request-failed': 'Keine Verbindung zu Google. Versuch es gleich noch einmal.',
 }
 
-export default function AccountBar({ brand, user, ready, error, clearError }) {
+export default function AccountBar({ brand, user, ready, error, clearError, onOpenSettings }) {
   const online = useOnline()
   const [busy, setBusy] = useState(false)
   const [loginError, setLoginError] = useState(null)
-  const [settingsOpen, setSettingsOpen] = useState(false)
 
   if (!syncAvailable || !ready) return <header>{brand}</header>
 
@@ -65,7 +63,7 @@ export default function AccountBar({ brand, user, ready, error, clearError }) {
           )}
         </div>
         <button
-          onClick={() => setSettingsOpen(true)}
+          onClick={onOpenSettings}
           aria-label="Einstellungen"
           className="grid size-11 shrink-0 place-items-center rounded-full bg-surface hover:bg-fill"
         >
@@ -100,7 +98,6 @@ export default function AccountBar({ brand, user, ready, error, clearError }) {
         </div>
       )}
 
-      {settingsOpen && <SettingsSheet user={user} onClose={() => setSettingsOpen(false)} />}
     </header>
   )
 }

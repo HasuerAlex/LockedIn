@@ -383,6 +383,8 @@ function SessionRow({ s, onToggle, onDelete }) {
             {sport.label}
           </span>
           <span aria-hidden>·</span>
+          {s.start && <span className="tabular-nums">{s.start}</span>}
+          {s.start && <span aria-hidden>·</span>}
           <span>{fmtDuration(s.duration)}</span>
           {s.distance ? (
             <>
@@ -414,7 +416,7 @@ function SessionRow({ s, onToggle, onDelete }) {
 }
 
 function AddSessionSheet({ defaultDay, onClose, onAdd }) {
-  const [form, setForm] = useState({ day: defaultDay, sport: 'run', title: '', duration: '60', distance: '', repeat: false })
+  const [form, setForm] = useState({ day: defaultDay, sport: 'run', title: '', duration: '60', distance: '', start: '', repeat: false })
 
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose()
@@ -442,6 +444,7 @@ function AddSessionSheet({ defaultDay, onClose, onAdd }) {
       title: form.title.trim() || `${SPORTS[form.sport].label}-Einheit`,
       duration,
       distance: form.sport === 'strength' ? null : distance,
+      start: form.start || null,
       repeat: form.repeat,
     })
   }
@@ -571,6 +574,18 @@ function AddSessionSheet({ defaultDay, onClose, onAdd }) {
               </button>
             ))}
           </div>
+          <label className="flex items-center justify-between gap-3 text-subhead text-label-2">
+            <span>
+              Startzeit <span className="text-footnote">(optional, für den Verpflegungsplan)</span>
+            </span>
+            <input
+              type="time"
+              value={form.start}
+              onChange={(e) => setForm({ ...form, start: e.target.value })}
+              className="h-11 rounded-xl border border-separator bg-bg px-3 text-body text-label outline-none focus:border-label"
+            />
+          </label>
+
           {(durationError || distanceError) && (
             <p className="text-subhead text-label-2" role="alert">
               {durationError || distanceError}

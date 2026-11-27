@@ -7,7 +7,10 @@ import AccountBar from './components/AccountBar'
 import Brand from './components/Brand'
 import PainLabCard from './components/PainLabCard'
 import WeekSummary from './components/WeekSummary'
-import { weekSummary } from './lib/week'
+import TabBar, { TABS } from './components/TabBar'
+import FoodTracker from './components/FoodTracker'
+import SettingsSheet from './components/SettingsSheet'
+import { weekSessions, weekSummary } from './lib/week'
 import { useAuth, useSyncedState } from './lib/sync'
 import { mondayOf, addDays, toKey, fmtDate, isoWeek, startOfDay } from './lib/utils'
 
@@ -29,8 +32,30 @@ function useToday() {
   return today
 }
 
+/** Aktiver Bereich steht im URL-Hash (#training, #ernaehrung, #painlab) → Neuladen und Zurück-Taste funktionieren */
+function useTab() {
+  const read = () => {
+    const id = window.location.hash.slice(1)
+    return TABS.some((t) => t.id === id) ? id : 'training'
+  }
+  const [tab, setTabState] = useState(read)
+  useEffect(() => {
+    const onHash = () => setTabState(read())
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+  const setTab = (id) => {
+    if (id === tab) return
+    window.location.hash = id
+    window.scrollTo({ top: 0 })
+  }
+  return [tab, setTab]
+}
+
 export default function App() {
   const today = useToday()
+  const [tab, setTab] = useTab()
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const currentMonday = mondayOf(today)
   const [weekStart, setWeekStart] = useState(currentMonday)
 
@@ -44,6 +69,15 @@ export default function App() {
   const [recurring, setRecurring] = useSyncedState('recurring', [], user, onSyncError)
   const [recurringState, setRecurringState] = useSyncedState('recurringState', {}, user, onSyncError)
   const [dayNotes, setDayNotes] = useSyncedState('dayNotes', {}, user, onSyncError)
+  const [profile, setProfile] = useSyncedState('profile', {}, user, onSyncError)
+  const [food, setFood] = useSyncedState('food', {}, user, onSyncError)
+  const [foodFavorites, setFoodFavorites] = useSyncedState('foodFavorites', [], user, onSyncError)
+
+  /** Einheiten eines bestimmten Tages (für Ernährung) */
+  const sessionsFor = (date) => {
+    const dayIdx = (date.getDay() + 6) % 7
+    return weekSessions({ plans, recurring, recurringState }, toKey(mondayOf(date))).filter((s) => s.day === dayIdx)
+  }
 
   // Einmalige Umstellung: unveränderte alte Standard-Habits durch die neuen Grundpunkte ersetzen
   // (gleiche IDs für Wasser und Schlaf → deren Verlauf bleibt erhalten)
@@ -91,7 +125,38 @@ export default function App() {
   return (
     <div className="min-h-dvh pb-28">
       <main className="mx-auto max-w-6xl space-y-8 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6 lg:pt-6">
-        <AccountBar brand={<Brand />} user={user} ready={authReady} error={syncError} clearError={() => setSyncError(null)} />
+        <AccountBar
+          brand={<Brand />}
+          user={user}
+          ready={authReady}
+          error={syncError}
+          clearError={() => setSyncError(null)}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+        <TabBar tab={tab} setTab={setTab} />
+
+        {tab === 'ernaehrung' && (
+          <FoodTracker
+            today={today}
+            profile={profile}
+            food={food}
+            setFood={setFood}
+            favorites={foodFavorites}
+            setFavorites={setFoodFavorites}
+            sessionsFor={sessionsFor}
+            onDeleted={onDeleted}
+            openSettings={() => setSettingsOpen(true)}
+          />
+        )}
+
+        {tab === 'painlab' && (
+          <div className="max-w-xl">
+            <PainLabCard />
+          </div>
+        )}
+
+        {tab === 'training' && (
+        <>
         <GoalBanner goal={goal} setGoal={setGoal} today={today} />
 
         {/* Woche – gilt für Training und Habits */}
@@ -163,16 +228,17 @@ export default function App() {
               setLog={setHabitLog}
               onDeleted={onDeleted}
             />
-            <PainLabCard />
           </div>
         </div>
+        </>
+        )}
 
               </main>
 
       {lastUndo && (
         <div
           role="status"
-          className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-md items-center gap-1 rounded-2xl bg-label py-1.5 pr-1.5 pl-4 text-on-label shadow-2xl"
+          className="fixed inset-x-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 lg:bottom-[max(1rem,env(safe-area-inset-bottom))] mx-auto flex max-w-md items-center gap-1 rounded-2xl bg-label py-1.5 pr-1.5 pl-4 text-on-label shadow-2xl"
         >
           <p className="min-w-0 flex-1 truncate text-subhead">{lastUndo.message}</p>
           <button onClick={undo} className="inline-flex h-11 items-center gap-1.5 rounded-full px-3 text-subhead font-semibold hover:bg-on-label/15">
@@ -187,6 +253,7 @@ export default function App() {
           </button>
         </div>
       )}
+      {settingsOpen && <SettingsSheet user={user} profile={profile} setProfile={setProfile} onClose={() => setSettingsOpen(false)} />}
     </div>
   )
 }
