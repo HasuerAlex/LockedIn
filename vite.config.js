@@ -5,4 +5,5 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   base: '/athleten-dashboard/',
   plugins: [react(), tailwindcss()],
+  build: { chunkSizeWarningLimit: 1000 },
 })

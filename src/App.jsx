@@ -3,7 +3,9 @@ import { ChevronLeft, ChevronRight, Undo2, X } from 'lucide-react'
 import GoalBanner, { defaultGoal } from './components/GoalBanner'
 import WeeklyPlan, { samplePlan } from './components/WeeklyPlan'
 import HabitTracker, { DEFAULT_HABITS } from './components/HabitTracker'
-import { useLocalStorage, mondayOf, addDays, toKey, fmtDate, isoWeek, startOfDay } from './lib/utils'
+import AccountBar from './components/AccountBar'
+import { useAuth, useSyncedState } from './lib/sync'
+import { mondayOf, addDays, toKey, fmtDate, isoWeek, startOfDay } from './lib/utils'
 
 function useToday() {
   const [today, setToday] = useState(() => startOfDay(new Date()))
@@ -28,10 +30,13 @@ export default function App() {
   const currentMonday = mondayOf(today)
   const [weekStart, setWeekStart] = useState(currentMonday)
 
-  const [goal, setGoal] = useLocalStorage('goal', () => defaultGoal(today))
-  const [plans, setPlans] = useLocalStorage('plans', () => ({ [toKey(currentMonday)]: samplePlan() }))
-  const [habits, setHabits] = useLocalStorage('habits', DEFAULT_HABITS)
-  const [habitLog, setHabitLog] = useLocalStorage('habitLog', {})
+  const { user, ready: authReady } = useAuth()
+  const [syncError, setSyncError] = useState(null)
+  const onSyncError = useCallback((e) => setSyncError(e?.code || e?.message || 'unbekannt'), [])
+  const [goal, setGoal] = useSyncedState('goal', () => defaultGoal(today), user, onSyncError)
+  const [plans, setPlans] = useSyncedState('plans', () => ({ [toKey(currentMonday)]: samplePlan() }), user, onSyncError)
+  const [habits, setHabits] = useSyncedState('habits', DEFAULT_HABITS, user, onSyncError)
+  const [habitLog, setHabitLog] = useSyncedState('habitLog', {}, user, onSyncError)
 
   // Widerrufen-Stapel: Löschen fragt nicht nach, lässt sich aber rückgängig machen.
   // Bleibt sichtbar, bis man ihn schließt (kein Timer).
@@ -60,7 +65,8 @@ export default function App() {
 
   return (
     <div className="min-h-dvh pb-28">
-      <main className="mx-auto max-w-6xl space-y-8 px-4 pt-[max(1.5rem,env(safe-area-inset-top))] sm:px-6 lg:pt-10">
+      <main className="mx-auto max-w-6xl space-y-8 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6 lg:pt-6">
+        <AccountBar user={user} ready={authReady} error={syncError} clearError={() => setSyncError(null)} />
         <GoalBanner goal={goal} setGoal={setGoal} today={today} />
 
         {/* Woche – gilt für Training und Habits */}
