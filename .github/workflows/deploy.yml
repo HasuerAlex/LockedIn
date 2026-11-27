@@ -60,10 +60,12 @@ jobs:
           projectId: lockedin-49486
           channelId: live
       # Firestore-Regeln (firestore.rules) mitveröffentlichen
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - name: Firestore-Regeln veröffentlichen
+        run: node scripts/deploy-rules.mjs
         env:
-          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: |
-          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
-          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json" npx --yes firebase-tools@15 deploy --only firestore:rules --project lockedin-49486 --non-interactive
-          rm -f "$RUNNER_TEMP/sa.json"
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
