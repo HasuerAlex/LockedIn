@@ -6,6 +6,8 @@ import HabitTracker, { DEFAULT_HABITS, isOldDefaultHabits, needsRename, renameDe
 import AccountBar from './components/AccountBar'
 import Brand from './components/Brand'
 import PainLabCard from './components/PainLabCard'
+import WeekSummary from './components/WeekSummary'
+import { weekSummary } from './lib/week'
 import { useAuth, useSyncedState } from './lib/sync'
 import { mondayOf, addDays, toKey, fmtDate, isoWeek, startOfDay } from './lib/utils'
 
@@ -74,6 +76,14 @@ export default function App() {
 
   const isCurrentWeek = toKey(weekStart) === toKey(currentMonday)
   const weekEnd = addDays(weekStart, 6)
+
+  // Wochenrückblick: vergangene Wochen immer, die laufende Woche ab Sonntag
+  const weekKey = toKey(weekStart)
+  const todayKey = toKey(today)
+  const showSummary = weekKey < toKey(currentMonday) || (isCurrentWeek && today.getDay() === 0)
+  const summaryData = { plans, recurring, recurringState, habits, habitLog, dayNotes }
+  const summary = showSummary ? weekSummary(summaryData, weekKey, todayKey) : null
+  const previousSummary = summary ? weekSummary(summaryData, toKey(addDays(weekStart, -7)), todayKey) : null
   const lastUndo = undoStack.at(-1)
 
   if (!authReady) return <div className="min-h-dvh" aria-busy="true" />
@@ -119,6 +129,15 @@ export default function App() {
             </button>
           )}
         </nav>
+
+        {summary && !summary.isEmpty && (
+          <WeekSummary
+            summary={summary}
+            previous={previousSummary}
+            isCurrent={isCurrentWeek}
+            weekLabel={`KW ${isoWeek(weekStart)} · ${fmtDate(weekStart)} – ${fmtDate(weekEnd)}`}
+          />
+        )}
 
         <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-8 lg:grid-cols-[minmax(0,1fr)_400px]">
           <WeeklyPlan

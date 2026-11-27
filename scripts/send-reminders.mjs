@@ -2,7 +2,7 @@
  * Verschickt fällige LockedIn-Erinnerungen per Firebase Cloud Messaging.
  * Läuft alle 15 Minuten über GitHub Actions (.github/workflows/reminders.yml).
  *
- * Ablauf je Erinnerungsart (training, habits):
+ * Ablauf je Erinnerungsart (training, habits, weekly = Wochenrückblick am Sonntag):
  *   1. reminders/{uid} mit `<art>.next <= jetzt` suchen (nur fällige Einträge werden gelesen)
  *   2. Inhalt aus den Daten der Person bauen (users/{uid}/data/...)
  *   3. an alle Geräte schicken, ungültige Geräte entfernen
@@ -12,11 +12,13 @@
  *   FIREBASE_SERVICE_ACCOUNT  JSON des Dienstkontos (GitHub-Secret)
  *   FIRESTORE_EMULATOR_HOST   für lokale Tests; dann wird nichts verschickt, nur ausgegeben
  *   DRY_RUN=1                 nichts verschicken und nichts ändern, nur ausgeben
+ *   NOW=2026-11-22T18:05:00Z  (nur Tests) so tun, als wäre jetzt dieser Zeitpunkt
  */
 import { cert, initializeApp } from 'firebase-admin/app'
 import { FieldValue, Timestamp, getFirestore } from 'firebase-admin/firestore'
 import { getMessaging } from 'firebase-admin/messaging'
 import { DEFAULT_HABITS } from '../src/lib/defaults.js'
+import { addDaysKey, weekSummary } from '../src/lib/week.js'
 
 const emulator = Boolean(process.env.FIRESTORE_EMULATOR_HOST)
 const dryRun = process.env.DRY_RUN === '1'
@@ -51,12 +53,13 @@ function zonedToUtc(y, m, d, h, min, tz) {
   return new Date(guess)
 }
 
-/** Nächstes Auftreten von 'HH:MM' in `tz` strikt nach `after` */
-export function nextInZone(time, tz, after) {
+/** Nächstes Auftreten von 'HH:MM' in `tz` strikt nach `after`; mit `sundayOnly` nur sonntags */
+export function nextInZone(time, tz, after, sundayOnly = false) {
   const [h, min] = time.split(':').map(Number)
   const p = partsIn(after, tz)
-  for (let add = 0; add < 3; add++) {
+  for (let add = 0; add < 10; add++) {
     const day = new Date(Date.UTC(p.y, p.m - 1, p.d + add))
+    if (sundayOnly && day.getUTCDay() !== 0) continue
     const cand = zonedToUtc(day.getUTCFullYear(), day.getUTCMonth() + 1, day.getUTCDate(), h, min, tz)
     if (cand > after) return cand
   }
@@ -124,7 +127,23 @@ async function habitsMessage(uid, day) {
   }
 }
 
-const BUILDERS = { training: trainingMessage, habits: habitsMessage }
+const hours = (min) => (min / 60).toLocaleString('de-AT', { maximumFractionDigits: 1 })
+
+async function weeklyMessage(uid, day) {
+  const data = await userData(uid, ['plans', 'recurring', 'recurringState', 'habits', 'habitLog', 'dayNotes'])
+  const s = weekSummary(data, day.weekKey, day.dateKey)
+  if (s.isEmpty) return null
+  const prev = weekSummary(data, addDaysKey(day.weekKey, -7), day.dateKey)
+  const parts = []
+  if (s.planned > 0) parts.push(`${hours(s.done)} von ${hours(s.planned)} h Training`)
+  if (s.habits.total > 0) parts.push(`Habits ${Math.round(s.habits.pct * 100)} %`)
+  if (s.rating.count) parts.push(`Ø ${s.rating.avg.toLocaleString('de-AT', { maximumFractionDigits: 1 })} ★`)
+  const delta = !prev.isEmpty && s.planned > 0 ? s.done - prev.done : 0
+  if (delta) parts.push(`${delta > 0 ? '+' : '−'}${hours(Math.abs(delta))} h zur Vorwoche`)
+  return { title: 'Dein Wochenrückblick', body: parts.join(' · '), tag: 'weekly' }
+}
+
+const BUILDERS = { training: trainingMessage, habits: habitsMessage, weekly: weeklyMessage }
 
 /* ---------- Versand ---------- */
 
@@ -152,7 +171,7 @@ async function send(tokens, msg) {
 }
 
 async function run() {
-  const now = new Date()
+  const now = process.env.NOW ? new Date(process.env.NOW) : new Date() // NOW nur für Tests
   let count = 0
   for (const kind of Object.keys(BUILDERS)) {
     const due = await db.collection('reminders').where(`${kind}.next`, '<=', Timestamp.fromDate(now)).get()
@@ -161,7 +180,7 @@ async function run() {
       const tz = r.tz || 'Europe/Vienna'
       const cfg = r[kind]
       const scheduled = cfg.next.toDate()
-      const update = { [`${kind}.next`]: cfg.enabled ? Timestamp.fromDate(nextInZone(cfg.time, tz, now)) : null }
+      const update = { [`${kind}.next`]: cfg.enabled ? Timestamp.fromDate(nextInZone(cfg.time, tz, now, kind === 'weekly')) : null }
       console.log(`${snap.id} · ${kind} · geplant ${scheduled.toISOString()}`)
 
       if (!cfg.enabled) console.log('  ausgeschaltet')

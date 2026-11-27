@@ -2,19 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { Plus, Check, Trash2, Copy, Repeat, ChevronDown, Star, NotebookPen } from 'lucide-react'
 import { SPORTS, WEEKDAYS, WEEKDAYS_LONG, addDays, fmtDate, fmtDuration, fmtHours, toKey, uid } from '../lib/utils'
 
-/** Wiederkehrende Einheit gilt in Woche `weekKey`, wenn sie seit dann läuft und nicht beendet wurde */
-const activeIn = (weekKey) => (r) => r.since <= weekKey && (!r.until || weekKey < r.until)
+import { weekSessions } from '../lib/week'
 
 export default function WeeklyPlan({ weekStart, today, plans, setPlans, recurring, setRecurring, recurringState, setRecurringState, dayNotes, setDayNotes, onDeleted }) {
   const weekKey = toKey(weekStart)
   const ownSessions = plans[weekKey] ?? []
   const weekState = recurringState[weekKey] ?? {}
-  // Wiederkehrende Einheiten dieser Woche (Erledigt/Übersprungen gilt jeweils nur für diese Woche)
-  const recurringSessions = recurring
-    .filter(activeIn(weekKey))
-    .filter((r) => weekState[r.id] !== 'skipped')
-    .map((r) => ({ ...r, done: weekState[r.id] === 'done', recurring: true }))
-  const sessions = [...recurringSessions, ...ownSessions]
+  // Wiederkehrende (Erledigt/Übersprungen gilt jeweils nur für diese Woche) + einmalige Einheiten
+  const sessions = weekSessions({ plans, recurring, recurringState }, weekKey)
   const [sheetDay, setSheetDay] = useState(null) // null = Sheet geschlossen
   const [deleting, setDeleting] = useState(null) // wiederkehrende Einheit, für die gerade gefragt wird
   const [expanded, setExpanded] = useState(() => new Set()) // aufgeklappte Tage (Datum)

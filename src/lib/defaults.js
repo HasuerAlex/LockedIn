@@ -14,4 +14,5 @@ export const DEFAULT_HABITS = [
 export const DEFAULT_REMINDERS = {
   training: { enabled: false, time: '07:00' },
   habits: { enabled: false, time: '20:00' },
+  weekly: { enabled: false, time: '19:00' }, // Wochenrückblick, jeden Sonntag
 }

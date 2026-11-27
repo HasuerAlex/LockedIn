@@ -96,7 +96,15 @@ export function useSyncedState(key, emptyValue, user, onError) {
   const valueRef = useRef(value)
   const connected = useRef(false) // erster Stand aus der Cloud empfangen?
   const remoteValue = useRef(value) // zuletzt aus der Cloud übernommener Wert → nicht zurückschreiben
+  const inFlight = useRef(0) // eigene Schreibvorgänge, die der Server noch nicht bestätigt hat
   const uid = user?.uid
+
+  const write = (ref, v) => {
+    inFlight.current++
+    setDoc(ref, { value: v, updatedAt: serverTimestamp() })
+      .catch(onError)
+      .finally(() => inFlight.current--)
+  }
 
   useEffect(() => {
     connected.current = false
@@ -111,16 +119,17 @@ export function useSyncedState(key, emptyValue, user, onError) {
       // Metadaten-Änderungen nötig, sonst kommt die Server-Bestätigung „Dokument existiert nicht“ nie an
       { includeMetadataChanges: true },
       (snap) => {
-        if (snap.metadata.hasPendingWrites) return // eigenes Echo
+        // Eigenes Echo – oder ein Zwischenstand, während eigene Änderungen noch unterwegs sind.
+        // (Firestore meldet die Bestätigung eines älteren Schreibvorgangs manchmal, bevor ein neuerer
+        //  lokal als „ausstehend“ eingetragen ist; ohne diese Sperre würde der neuere Stand überschrieben.)
+        if (snap.metadata.hasPendingWrites || inFlight.current > 0) return
         if (!snap.exists()) {
           // Neues Konto: erst nach echter Server-Antwort als verbunden gelten,
           // damit ein leerer Offline-Cache nie vorhandene Cloud-Daten überschreibt.
           if (snap.metadata.fromCache || connected.current) return
           connected.current = true
           // Was schon vor der Server-Antwort eingegeben wurde, jetzt hochladen
-          if (valueRef.current !== remoteValue.current) {
-            setDoc(ref, { value: valueRef.current, updatedAt: serverTimestamp() }).catch(onError)
-          }
+          if (valueRef.current !== remoteValue.current) write(ref, valueRef.current)
           return
         }
         connected.current = true
@@ -140,7 +149,7 @@ export function useSyncedState(key, emptyValue, user, onError) {
     valueRef.current = value
     if (value === remoteValue.current) return
     if (!db || !uid || !connected.current) return
-    setDoc(doc(db, 'users', uid, 'data', key), { value, updatedAt: serverTimestamp() }).catch(onError)
+    write(doc(db, 'users', uid, 'data', key), value)
   }, [value, uid, key, onError])
 
   return [value, setValue]

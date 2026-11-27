@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Bell, Dumbbell, ListChecks, Share, X } from 'lucide-react'
+import { Bell, CalendarCheck, Dumbbell, ListChecks, Share, X } from 'lucide-react'
 import {
   disablePush,
   enablePush,
@@ -94,9 +94,10 @@ function Notifications({ uid }) {
         await enablePush(uid)
         setPermission('granted')
         // Beim ersten Einschalten beide Erinnerungen mit Standardzeit aktivieren
-        if (reminders && !reminders.training.enabled && !reminders.habits.enabled) {
+        if (reminders && !reminders.training.enabled && !reminders.habits.enabled && !reminders.weekly.enabled) {
           await saveReminder(uid, 'training', { ...reminders.training, enabled: true })
           await saveReminder(uid, 'habits', { ...reminders.habits, enabled: true })
+          await saveReminder(uid, 'weekly', { ...reminders.weekly, enabled: true })
         }
       }
     } catch (e) {
@@ -162,6 +163,13 @@ function Notifications({ uid }) {
                   subtitle="Welche Habits noch offen sind – nur wenn etwas fehlt"
                   value={reminders.habits}
                   onChange={(v) => saveReminder(uid, 'habits', v).catch(onError)}
+                />
+                <ReminderRow
+                  icon={CalendarCheck}
+                  title="Wochenrückblick"
+                  subtitle="Jeden Sonntag – deine Woche in Zahlen"
+                  value={reminders.weekly}
+                  onChange={(v) => saveReminder(uid, 'weekly', v).catch(onError)}
                 />
               </>
             )}

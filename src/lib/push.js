@@ -55,12 +55,15 @@ export const localDeviceId = () => {
   }
 }
 
-/** Nächster Zeitpunkt für 'HH:MM' in der Zeitzone dieses Geräts */
-export function nextOccurrence(time, from = new Date()) {
+/** Nächster Zeitpunkt für 'HH:MM' in der Zeitzone dieses Geräts; mit `sundayOnly` nur sonntags */
+export function nextOccurrence(time, from = new Date(), sundayOnly = false) {
   const [h, m] = time.split(':').map(Number)
   const d = new Date(from)
   d.setHours(h, m, 0, 0)
-  if (d <= from) d.setDate(d.getDate() + 1)
+  while (d <= from || (sundayOnly && d.getDay() !== 0)) {
+    d.setDate(d.getDate() + 1)
+    d.setHours(h, m, 0, 0)
+  }
   return d
 }
 
@@ -103,14 +106,14 @@ export async function disablePush(uid) {
   }
 }
 
-/** Uhrzeit/Ein-Aus einer Erinnerung speichern ('training' | 'habits') */
+/** Uhrzeit/Ein-Aus einer Erinnerung speichern ('training' | 'habits' | 'weekly') */
 export function saveReminder(uid, kind, { enabled, time }) {
   return setDoc(
     reminderRef(uid),
     {
       uid,
       tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      [kind]: { enabled, time, next: enabled ? nextOccurrence(time) : null },
+      [kind]: { enabled, time, next: enabled ? nextOccurrence(time, new Date(), kind === 'weekly') : null },
     },
     { merge: true },
   )
@@ -131,6 +134,7 @@ export function useReminders(uid, onError) {
   return {
     training: { ...DEFAULT_REMINDERS.training, ...data.training },
     habits: { ...DEFAULT_REMINDERS.habits, ...data.habits },
+    weekly: { ...DEFAULT_REMINDERS.weekly, ...data.weekly },
     tokens: data.tokens ?? {},
   }
 }
