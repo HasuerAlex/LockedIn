@@ -41,6 +41,7 @@ export default function App() {
   const [habitLog, setHabitLog] = useSyncedState('habitLog', {}, user, onSyncError)
   const [recurring, setRecurring] = useSyncedState('recurring', [], user, onSyncError)
   const [recurringState, setRecurringState] = useSyncedState('recurringState', {}, user, onSyncError)
+  const [dayNotes, setDayNotes] = useSyncedState('dayNotes', {}, user, onSyncError)
 
   // Einmalige Umstellung: unveränderte alte Standard-Habits durch die neuen Grundpunkte ersetzen
   // (gleiche IDs für Wasser und Schlaf → deren Verlauf bleibt erhalten)
@@ -129,6 +130,8 @@ export default function App() {
             setRecurring={setRecurring}
             recurringState={recurringState}
             setRecurringState={setRecurringState}
+            dayNotes={dayNotes}
+            setDayNotes={setDayNotes}
             onDeleted={onDeleted}
           />
           <div className="space-y-8">

@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
-import { Plus, Check, Trash2, Copy, Repeat } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Plus, Check, Trash2, Copy, Repeat, ChevronDown, Star, NotebookPen } from 'lucide-react'
 import { SPORTS, WEEKDAYS, WEEKDAYS_LONG, addDays, fmtDate, fmtDuration, fmtHours, toKey, uid } from '../lib/utils'
 
 /** Wiederkehrende Einheit gilt in Woche `weekKey`, wenn sie seit dann läuft und nicht beendet wurde */
 const activeIn = (weekKey) => (r) => r.since <= weekKey && (!r.until || weekKey < r.until)
 
-export default function WeeklyPlan({ weekStart, today, plans, setPlans, recurring, setRecurring, recurringState, setRecurringState, onDeleted }) {
+export default function WeeklyPlan({ weekStart, today, plans, setPlans, recurring, setRecurring, recurringState, setRecurringState, dayNotes, setDayNotes, onDeleted }) {
   const weekKey = toKey(weekStart)
   const ownSessions = plans[weekKey] ?? []
   const weekState = recurringState[weekKey] ?? {}
@@ -17,6 +17,26 @@ export default function WeeklyPlan({ weekStart, today, plans, setPlans, recurrin
   const sessions = [...recurringSessions, ...ownSessions]
   const [sheetDay, setSheetDay] = useState(null) // null = Sheet geschlossen
   const [deleting, setDeleting] = useState(null) // wiederkehrende Einheit, für die gerade gefragt wird
+  const [expanded, setExpanded] = useState(() => new Set()) // aufgeklappte Tage (Datum)
+  const toggleExpanded = (key) =>
+    setExpanded((set) => {
+      const next = new Set(set)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+
+  // Bewertung/Notiz eines Tages ändern; leere Einträge werden entfernt
+  const updateDay = (dateKey, patch) =>
+    setDayNotes((all) => {
+      const entry = { ...(all[dateKey] ?? {}), ...patch }
+      if (!entry.rating) delete entry.rating
+      if (!entry.note?.trim()) delete entry.note
+      const next = { ...all }
+      if (Object.keys(entry).length) next[dateKey] = entry
+      else delete next[dateKey]
+      return next
+    })
 
   const setWeekState = (id, value) =>
     setRecurringState((st) => {
@@ -168,20 +188,43 @@ export default function WeeklyPlan({ weekStart, today, plans, setPlans, recurrin
           const isToday = dayIdx === todayIdx
           const daySessions = sessions.filter((s) => s.day === dayIdx)
           const dayMin = daySessions.reduce((a, s) => a + s.duration, 0)
+          const dateKey = toKey(date)
+          const entry = dayNotes[dateKey] ?? {}
+          const open = expanded.has(dateKey)
           return (
             <li key={name} className="border-separator [&:not(:first-child)]:border-t">
-              <div className="flex items-center gap-3 py-2 pr-2 pl-5">
-                <h3 className="flex-1 text-headline font-semibold">
-                  {name}
-                  {isToday && (
-                    <span className="ml-2 rounded-full bg-label px-2 py-0.5 align-[2px] text-caption font-semibold text-on-label">
-                      Heute
+              <div className="flex items-center gap-1 py-1 pr-2 pl-2">
+                <h3 className="min-w-0 flex-1">
+                  <button
+                    onClick={() => toggleExpanded(dateKey)}
+                    aria-expanded={open}
+                    aria-controls={`day-${dateKey}`}
+                    className="flex min-h-11 w-full items-center gap-2 rounded-xl px-1 text-left hover:bg-fill/60"
+                  >
+                    <ChevronDown
+                      className={`size-5 shrink-0 text-label-2 transition-transform ${open ? '' : '-rotate-90'}`}
+                      aria-hidden
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="text-headline font-semibold">{name}</span>
+                      {isToday && (
+                        <span className="ml-2 rounded-full bg-label px-2 py-0.5 align-[2px] text-caption font-semibold text-on-label">
+                          Heute
+                        </span>
+                      )}
+                      <span className="ml-2 text-footnote font-normal text-label-2">
+                        {fmtDate(date)}
+                        {dayMin > 0 && ` · ${fmtDuration(dayMin)}`}
+                      </span>
                     </span>
-                  )}
-                  <span className="ml-2 text-footnote font-normal text-label-2">
-                    {fmtDate(date)}
-                    {dayMin > 0 && ` · ${fmtDuration(dayMin)}`}
-                  </span>
+                    {entry.rating > 0 && (
+                      <span className="inline-flex shrink-0 items-center gap-0.5 text-footnote font-semibold text-label" aria-label={`Bewertung ${entry.rating} von 5`}>
+                        <Star className="size-4 fill-rating text-rating" aria-hidden />
+                        {entry.rating}
+                      </span>
+                    )}
+                    {entry.note && <NotebookPen className="size-4 shrink-0 text-label-2" aria-label="Notiz vorhanden" />}
+                  </button>
                 </h3>
                 <button
                   onClick={() => setSheetDay(dayIdx)}
@@ -200,6 +243,17 @@ export default function WeeklyPlan({ weekStart, today, plans, setPlans, recurrin
                     <SessionRow key={s.id} s={s} onToggle={() => toggle(s)} onDelete={() => remove(s)} />
                   ))}
                 </ul>
+              )}
+
+              {open && (
+                <DayDetails
+                  id={`day-${dateKey}`}
+                  dayName={name}
+                  hasTraining={daySessions.length > 0}
+                  entry={entry}
+                  onRate={(rating) => updateDay(dateKey, { rating })}
+                  onNote={(note) => updateDay(dateKey, { note })}
+                />
               )}
             </li>
           )
@@ -228,6 +282,80 @@ export default function WeeklyPlan({ weekStart, today, plans, setPlans, recurrin
         />
       )}
     </section>
+  )
+}
+
+const RATING_WORDS = ['', 'Schlecht', 'Mäßig', 'Okay', 'Gut', 'Top']
+
+/** Aufgeklappter Bereich eines Tages: Sterne-Bewertung (nur an Trainingstagen) und Notiz */
+function DayDetails({ id, dayName, hasTraining, entry, onRate, onNote }) {
+  const [text, setText] = useState(entry.note ?? '')
+  const focused = useRef(false)
+  const timer = useRef(null)
+
+  // Änderungen von anderen Geräten übernehmen, solange hier nicht getippt wird
+  useEffect(() => {
+    if (!focused.current) setText(entry.note ?? '')
+  }, [entry.note])
+
+  // Beim Tippen verzögert speichern (spart Schreibvorgänge), beim Verlassen sofort
+  const save = (value) => {
+    clearTimeout(timer.current)
+    if ((value.trim() || '') !== (entry.note ?? '')) onNote(value.trim())
+  }
+  useEffect(() => () => clearTimeout(timer.current), [])
+
+  const rating = entry.rating ?? 0
+  return (
+    <div id={id} className="space-y-4 px-5 pt-1 pb-5">
+      {hasTraining && (
+        <div>
+          <p className="text-subhead text-label-2" id={`${id}-rating`}>
+            Wie war das Training?
+          </p>
+          <div className="mt-1 flex items-center gap-1">
+            <div role="radiogroup" aria-labelledby={`${id}-rating`} className="-ml-2.5 flex">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  role="radio"
+                  aria-checked={rating === n}
+                  aria-label={`${n} ${n === 1 ? 'Stern' : 'Sterne'} – ${RATING_WORDS[n]}`}
+                  onClick={() => onRate(rating === n ? 0 : n)}
+                  className="grid size-11 place-items-center rounded-full hover:bg-fill"
+                >
+                  <Star className={`size-7 transition-colors ${n <= rating ? 'fill-rating text-rating' : 'text-label-2'}`} strokeWidth={1.75} />
+                </button>
+              ))}
+            </div>
+            <span className="text-subhead font-semibold" aria-live="polite">
+              {RATING_WORDS[rating]}
+            </span>
+          </div>
+        </div>
+      )}
+
+      <label className="block text-subhead text-label-2">
+        Notizen
+        <textarea
+          value={text}
+          rows={3}
+          onFocus={() => (focused.current = true)}
+          onChange={(e) => {
+            const v = e.target.value
+            setText(v)
+            clearTimeout(timer.current)
+            timer.current = setTimeout(() => save(v), 1000)
+          }}
+          onBlur={() => {
+            focused.current = false
+            save(text)
+          }}
+          placeholder={hasTraining ? 'Wie hast du dich gefühlt? Puls, Wetter, Material …' : `Notizen zum ${dayName}`}
+          className="mt-1 block w-full resize-y rounded-xl border border-separator bg-bg px-3 py-2.5 text-body text-label outline-none placeholder:text-label-2/70 focus:border-label"
+        />
+      </label>
+    </div>
   )
 }
 
