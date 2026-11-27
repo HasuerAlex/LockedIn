@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+html { color-scheme: dark; }
+body { @apply bg-slate-950 text-slate-100 antialiased; }
+
+input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8); cursor: pointer; }
