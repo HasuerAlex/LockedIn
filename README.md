@@ -36,6 +36,17 @@ Datenmodell: `users/{uid}/data/{goal|plans|habits|habitLog}` – jede Person sie
 
 Lokal testen mit dem Firebase-Emulator: `VITE_FIREBASE_EMULATOR=1 npm run dev` (Emulator für Auth und Firestore muss laufen).
 
+## Push-Erinnerungen
+Über das Zahnrad oben öffnen sich die Einstellungen. Dort schaltet man Push-Benachrichtigungen pro Gerät ein und stellt
+die Uhrzeiten für die Training- und Habit-Erinnerung ein (gespeichert in `reminders/{uid}`).
+- Versand: `.github/workflows/reminders.yml` startet alle 15 Minuten `scripts/send-reminders.mjs`, das fällige
+  Erinnerungen über Firebase Cloud Messaging verschickt (Secret `FIREBASE_SERVICE_ACCOUNT`).
+- Einrichtung: öffentlichen Web-Push-Schlüssel (Firebase → Projekteinstellungen → Cloud Messaging → Web-Push-Zertifikate)
+  in `src/lib/firebase-config.js` als `vapidKey` eintragen.
+- iPhone/iPad: nur wenn LockedIn über „Teilen → Zum Home-Bildschirm“ installiert ist (iOS 16.4+).
+- Lokal testen: Emulator starten, dann `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 node scripts/send-reminders.mjs`
+  (verschickt nichts, gibt nur aus).
+
 ## Online
 Live-Version: **https://lockedin-habit.web.app** (Firebase Hosting), zusätzlich https://hasueralex.github.io/LockedIn/.
 Bei jedem Push auf `main` baut GitHub Actions die App und veröffentlicht sie an beiden Orten.

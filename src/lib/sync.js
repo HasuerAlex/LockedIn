@@ -17,11 +17,13 @@ const useEmulator = import.meta.env.VITE_FIREBASE_EMULATOR === '1'
 const config = useEmulator ? { apiKey: 'demo-key', authDomain: 'localhost', projectId: 'demo-athlete' } : firebaseConfig
 
 export const syncAvailable = Boolean(config)
+export const usingEmulator = useEmulator
 
 let auth = null
 let db = null
+let app = null
 if (syncAvailable) {
-  const app = initializeApp(config)
+  app = initializeApp(config)
   auth = getAuth(app)
   db = initializeFirestore(app, {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
@@ -143,3 +145,5 @@ export function useSyncedState(key, emptyValue, user, onError) {
 
   return [value, setValue]
 }
+
+export { app, db }

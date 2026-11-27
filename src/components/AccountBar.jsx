@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Cloud, CloudOff, LogOut } from 'lucide-react'
+import { Cloud, CloudOff, LogOut, Settings } from 'lucide-react'
+import SettingsSheet from './SettingsSheet'
 import { signIn, signOutUser, syncAvailable } from '../lib/sync'
 
 function useOnline() {
@@ -27,6 +28,7 @@ export default function AccountBar({ brand, user, ready, error, clearError }) {
   const online = useOnline()
   const [busy, setBusy] = useState(false)
   const [loginError, setLoginError] = useState(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   if (!syncAvailable || !ready) return <header>{brand}</header>
 
@@ -62,6 +64,13 @@ export default function AccountBar({ brand, user, ready, error, clearError }) {
             <p className="mt-0.5 text-footnote text-label-2">Nicht angemeldet – Änderungen werden nicht gespeichert</p>
           )}
         </div>
+        <button
+          onClick={() => setSettingsOpen(true)}
+          aria-label="Einstellungen"
+          className="grid size-11 shrink-0 place-items-center rounded-full bg-surface hover:bg-fill"
+        >
+          <Settings className="size-5" />
+        </button>
         {user ? (
           <button onClick={() => signOutUser()} className={`${pill} shrink-0`}>
             <LogOut className="size-4" aria-hidden /> Abmelden
@@ -90,6 +99,8 @@ export default function AccountBar({ brand, user, ready, error, clearError }) {
           </button>
         </div>
       )}
+
+      {settingsOpen && <SettingsSheet user={user} onClose={() => setSettingsOpen(false)} />}
     </header>
   )
 }

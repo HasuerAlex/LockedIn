@@ -289,12 +289,8 @@ function IconPicker({ label, value, onChange, className = '' }) {
   )
 }
 
-/** Grundpunkte – Startliste für alle, die noch keine eigenen Habits haben */
-export const DEFAULT_HABITS = [
-  { id: 'water', name: '3L Wasser getrunken', icon: 'water' },
-  { id: 'sport', name: 'Sport gemacht', icon: 'sport' },
-  { id: 'sleep', name: '8h geschlafen', icon: 'sleep' },
-]
+import { DEFAULT_HABITS } from '../lib/defaults'
+export { DEFAULT_HABITS }
 
 /** Vorschläge beim Hinzufügen einer neuen Routine */
 export const HABIT_SUGGESTIONS = [
