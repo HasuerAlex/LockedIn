@@ -36,6 +36,13 @@ Datenmodell: `users/{uid}/data/{goal|plans|habits|habitLog}` – jede Person sie
 
 Lokal testen mit dem Firebase-Emulator: `VITE_FIREBASE_EMULATOR=1 npm run dev` (Emulator für Auth und Firestore muss laufen).
 
+## Lebensmittel-Datenbank
+Die Suche im Ess-Tracker nutzt `public/foods-de.json` (≈ 7.150 Lebensmittel, Werte pro 100 g, wird erst beim Öffnen der Suche geladen).
+Quelle: **Max Rubner-Institut (2025): Bundeslebensmittelschlüssel (BLS), Version 4.0 – Deutsche Nährstoffdatenbank**,
+CC BY 4.0, sowie weitere offene Quellen (CoFID, USDA, Livsmedelsverket), zusammengestellt im npm-Paket
+`@thereforejs/foods` 0.0.3. Die Datei wurde daraus erzeugt (Name, Protein, Kohlenhydrate, Fett);
+kcal sind nach EU-Verordnung 1169/2011 aus den Nährstoffen berechnet.
+
 ## Push-Erinnerungen
 Über das Zahnrad oben öffnen sich die Einstellungen. Dort schaltet man Push-Benachrichtigungen pro Gerät ein und stellt
 die Uhrzeiten für die Training- und Habit-Erinnerung ein (gespeichert in `reminders/{uid}`).

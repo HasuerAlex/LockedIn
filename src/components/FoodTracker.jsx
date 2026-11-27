@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Trash2, Star, UserRound, Clock, Droplets, Zap, Utensils } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Trash2, Star, UserRound, Clock, Droplets, Zap, Utensils, Search, History } from 'lucide-react'
+import { loadFoodDb, portion, searchFoods } from '../lib/foodDb'
 import { SPORTS, addDays, fmtDate, fmtDuration, toKey, uid } from '../lib/utils'
 import {
   MEALS,
@@ -25,6 +26,16 @@ export default function FoodTracker({ today, profile, food, setFood, favorites, 
   const ready = profileComplete(profile)
   const target = ready ? dailyTargets(profile, sessions) : null
   const eaten = totals(entries)
+
+  // Zuletzt gegessen: die letzten 8 verschiedenen Einträge aus den letzten Tagen
+  const recent = []
+  for (const key of Object.keys(food).sort().reverse()) {
+    for (const e of [...food[key]].reverse()) {
+      if (recent.length >= 8) break
+      if (!recent.some((r) => r.name === e.name)) recent.push(e)
+    }
+    if (recent.length >= 8) break
+  }
 
   const addEntry = (entry) => setFood((all) => ({ ...all, [dateKey]: [...(all[dateKey] ?? []), { ...entry, id: uid() }] }))
   const removeEntry = (entry) => {
@@ -104,6 +115,7 @@ export default function FoodTracker({ today, profile, food, setFood, favorites, 
           defaultMeal={sheetMeal}
           favorites={favorites}
           setFavorites={setFavorites}
+          recent={recent}
           onClose={() => setSheetMeal(null)}
           onAdd={(e) => {
             addEntry(e)
@@ -219,7 +231,7 @@ function Meals({ entries, onAdd, onRemove }) {
                       <div className="min-w-0 flex-1 py-1.5">
                         <p className="text-body">{e.name}</p>
                         <p className="text-footnote tabular-nums text-label-2">
-                          P {fmt(e.protein || 0)} g · KH {fmt(e.carbs || 0)} g · F {fmt(e.fat || 0)} g
+                          {e.grams ? `${fmt(e.grams)} g · ` : ''}P {fmt(e.protein || 0)} g · KH {fmt(e.carbs || 0)} g · F {fmt(e.fat || 0)} g
                         </p>
                       </div>
                       <span className="text-subhead font-semibold tabular-nums">{fmt(e.kcal)} kcal</span>
@@ -334,9 +346,18 @@ const Hint = ({ children }) => <span className="mt-0.5 block text-footnote text-
 /* ---------- Eintrag hinzufügen ---------- */
 
 const SHORT_MEALS = { breakfast: 'Früh', lunch: 'Mittag', dinner: 'Abend', snack: 'Snack', training: 'Training' }
+const GRAM_STEPS = [30, 50, 100, 150, 200, 250]
 
-function FoodSheet({ defaultMeal, favorites, setFavorites, onClose, onAdd }) {
-  const [form, setForm] = useState({ meal: defaultMeal, name: '', kcal: '', protein: '', carbs: '', fat: '', favorite: false })
+function FoodSheet({ defaultMeal, favorites, setFavorites, recent, onClose, onAdd }) {
+  const [meal, setMeal] = useState(defaultMeal)
+  const [mode, setMode] = useState('search') // 'search' | 'amount' | 'manual'
+  const [query, setQuery] = useState('')
+  const [db, setDb] = useState(null)
+  const [dbError, setDbError] = useState(false)
+  const [picked, setPicked] = useState(null) // { name, kcal, protein, carbs, fat } pro 100 g
+  const [grams, setGrams] = useState('100')
+  const [favorite, setFavorite] = useState(false)
+  const [manual, setManual] = useState({ name: '', kcal: '', protein: '', carbs: '', fat: '' })
 
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose()
@@ -349,26 +370,50 @@ function FoodSheet({ defaultMeal, favorites, setFavorites, onClose, onAdd }) {
     }
   }, [onClose])
 
-  const num = (v) => (v === '' ? 0 : Number(String(v).replace(',', '.')) || 0)
-  const macros = { protein: num(form.protein), carbs: num(form.carbs), fat: num(form.fat) }
-  const autoKcal = kcalFromMacros(macros)
-  const kcal = form.kcal === '' ? autoKcal : num(form.kcal)
-  const valid = form.name.trim() && kcal > 0
+  useEffect(() => {
+    loadFoodDb().then(setDb, () => setDbError(true))
+  }, [])
 
-  const entryOf = (src) => ({ name: src.name, kcal: src.kcal, protein: src.protein, carbs: src.carbs, fat: src.fat })
+  const results = db && query.trim().length >= 2 ? searchFoods(db, query) : []
+
+  const num = (v) => (v === '' ? 0 : Number(String(v).replace(',', '.')) || 0)
+  const g = num(grams)
+  const picks = picked ? portion(picked, g) : null
+
+  const manualMacros = { protein: num(manual.protein), carbs: num(manual.carbs), fat: num(manual.fat) }
+  const autoKcal = kcalFromMacros(manualMacros)
+  const manualKcal = manual.kcal === '' ? autoKcal : num(manual.kcal)
+
+  const valid = mode === 'amount' ? g > 0 : mode === 'manual' ? manual.name.trim() && manualKcal > 0 : false
+
+  const pick = (food, startGrams = 100) => {
+    setPicked({ name: food.name, kcal: food.kcal, protein: food.protein, carbs: food.carbs, fat: food.fat })
+    setGrams(String(startGrams))
+    setMode('amount')
+  }
+
+  const saveFavorite = (entry) => {
+    if (favorite && !favorites.some((f) => f.name.toLowerCase() === entry.name.toLowerCase() && f.grams === entry.grams)) {
+      setFavorites((list) => [...list, { ...entry, id: uid() }])
+    }
+  }
 
   const submit = (e) => {
     e.preventDefault()
     if (!valid) return
-    const entry = { name: form.name.trim(), kcal: Math.round(kcal), ...macros }
-    if (form.favorite && !favorites.some((f) => f.name.toLowerCase() === entry.name.toLowerCase())) {
-      setFavorites((list) => [...list, { ...entry, id: uid() }])
+    let entry
+    if (mode === 'amount') {
+      entry = { name: picked.name, grams: g, ...portion(picked, g) }
+    } else {
+      entry = { name: manual.name.trim(), kcal: Math.round(manualKcal), ...manualMacros }
     }
-    onAdd({ ...entry, meal: form.meal })
+    saveFavorite(entry)
+    onAdd({ ...entry, meal })
   }
 
   const field = 'mt-1 block w-full rounded-xl border border-separator bg-bg px-3 py-2.5 text-body text-label outline-none focus:border-label'
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value.replace(/[^\d.,]/g, '') })
+  const setM = (k) => (e) => setManual({ ...manual, [k]: e.target.value.replace(/[^\d.,]/g, '') })
+  const title = mode === 'amount' ? 'Menge' : mode === 'manual' ? 'Manuell eingeben' : 'Lebensmittel'
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={onClose}>
@@ -378,112 +423,258 @@ function FoodSheet({ defaultMeal, favorites, setFavorites, onClose, onAdd }) {
         aria-labelledby="food-sheet-title"
         onSubmit={submit}
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-surface pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-3xl"
+        className="flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-surface shadow-2xl sm:rounded-3xl"
       >
-        <div className="sticky top-0 z-10 grid grid-cols-[1fr_auto_1fr] items-center border-b border-separator bg-surface px-2 py-1">
-          <button type="button" onClick={onClose} className="h-11 justify-self-start rounded-full px-3 text-body hover:bg-fill">
-            Abbrechen
-          </button>
+        <div className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-separator px-2 py-1">
+          {mode === 'search' ? (
+            <button type="button" onClick={onClose} className="h-11 justify-self-start rounded-full px-3 text-body hover:bg-fill">
+              Abbrechen
+            </button>
+          ) : (
+            <button type="button" onClick={() => setMode('search')} className="inline-flex h-11 items-center justify-self-start rounded-full pr-3 pl-1 text-body hover:bg-fill">
+              <ChevronLeft className="size-5" aria-hidden /> Suche
+            </button>
+          )}
           <h3 id="food-sheet-title" className="text-headline font-semibold">
-            Neuer Eintrag
+            {title}
           </h3>
-          <button type="submit" disabled={!valid} className="h-11 justify-self-end rounded-full px-3 text-body font-semibold hover:bg-fill disabled:opacity-30">
-            Hinzufügen
-          </button>
+          {mode === 'search' ? (
+            <span />
+          ) : (
+            <button type="submit" disabled={!valid} className="h-11 justify-self-end rounded-full px-3 text-body font-semibold hover:bg-fill disabled:opacity-30">
+              Hinzufügen
+            </button>
+          )}
         </div>
 
-        <div className="space-y-5 px-5 pt-5">
-          <fieldset>
-            <legend className="text-subhead text-label-2">Mahlzeit</legend>
-            <div className="mt-1.5 grid grid-cols-5 gap-1 rounded-2xl bg-fill p-1">
-              {Object.keys(MEALS).map((m) => (
-                <button
-                  type="button"
-                  key={m}
-                  aria-pressed={form.meal === m}
-                  aria-label={MEALS[m]}
-                  onClick={() => setForm({ ...form, meal: m })}
-                  className={`h-11 rounded-xl text-footnote font-semibold transition-colors ${
-                    form.meal === m ? 'bg-surface text-label shadow-sm' : 'text-label-2 hover:text-label'
-                  }`}
-                >
-                  {SHORT_MEALS[m]}
-                </button>
-              ))}
-            </div>
-          </fieldset>
+        <div className="shrink-0 space-y-3 px-5 pt-4">
+          <div role="radiogroup" aria-label="Mahlzeit" className="grid grid-cols-5 gap-1 rounded-2xl bg-fill p-1">
+            {Object.keys(MEALS).map((m) => (
+              <button
+                type="button"
+                key={m}
+                role="radio"
+                aria-checked={meal === m}
+                aria-label={MEALS[m]}
+                onClick={() => setMeal(m)}
+                className={`h-10 rounded-xl text-footnote font-semibold transition-colors ${meal === m ? 'bg-surface text-label shadow-sm' : 'text-label-2 hover:text-label'}`}
+              >
+                {SHORT_MEALS[m]}
+              </button>
+            ))}
+          </div>
+          {mode === 'search' && (
+            <label className="relative block">
+              <span className="sr-only">Lebensmittel suchen</span>
+              <Search className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-label-2" aria-hidden />
+              <input
+                autoFocus
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Lebensmittel suchen, z. B. Haferflocken"
+                enterKeyHint="search"
+                className="block h-11 w-full rounded-xl bg-fill pr-3 pl-10 text-body text-label outline-none placeholder:text-label-2 focus:ring-2 focus:ring-label"
+              />
+            </label>
+          )}
+        </div>
 
-          {favorites.length > 0 && (
-            <div>
-              <p className="text-subhead text-label-2">Favoriten – mit einem Tipp hinzufügen</p>
-              <ul className="mt-1.5 divide-y divide-separator overflow-hidden rounded-2xl bg-bg">
-                {favorites.map((f) => (
-                  <li key={f.id} className="flex items-center gap-1 pl-3">
-                    <button
-                      type="button"
-                      onClick={() => onAdd({ ...entryOf(f), meal: form.meal })}
-                      className="flex min-h-11 min-w-0 flex-1 items-center gap-2 py-1.5 text-left"
-                    >
-                      <Star className="size-4 shrink-0 fill-label text-label" aria-hidden />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-body">{f.name}</span>
-                        <span className="block text-footnote tabular-nums text-label-2">
-                          {fmt(f.kcal)} kcal · P {fmt(f.protein)} · KH {fmt(f.carbs)} · F {fmt(f.fat)}
-                        </span>
-                      </span>
-                      <Plus className="size-5 shrink-0 text-label-2" aria-hidden />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFavorites((list) => list.filter((x) => x.id !== f.id))}
-                      aria-label={`Favorit ${f.name} entfernen`}
-                      className="grid size-11 shrink-0 place-items-center rounded-full text-label-2 hover:bg-fill hover:text-label"
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          {mode === 'search' && (
+            <div className="space-y-5">
+              {query.trim().length >= 2 ? (
+                !db ? (
+                  <p className="py-6 text-center text-subhead text-label-2">{dbError ? 'Die Lebensmittel-Datenbank konnte nicht geladen werden. Prüfe die Verbindung.' : 'Lade Datenbank …'}</p>
+                ) : results.length === 0 ? (
+                  <p className="py-6 text-center text-subhead text-label-2">Nichts gefunden. Probier ein anderes Wort oder gib die Werte manuell ein.</p>
+                ) : (
+                  <ul aria-label="Suchergebnisse" className="divide-y divide-separator overflow-hidden rounded-2xl bg-bg">
+                    {results.map((f) => (
+                      <li key={f.name}>
+                        <button type="button" onClick={() => pick(f)} className="flex min-h-11 w-full items-center gap-3 px-3 py-2 text-left hover:bg-fill">
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-body">{f.name}</span>
+                            <span className="block text-footnote tabular-nums text-label-2">
+                              pro 100 g · P {fmt1(f.protein)} · KH {fmt1(f.carbs)} · F {fmt1(f.fat)}
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-subhead font-semibold tabular-nums">{f.kcal} kcal</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )
+              ) : (
+                <>
+                  {favorites.length > 0 && (
+                    <QuickList
+                      title="Favoriten – mit einem Tipp hinzufügen"
+                      items={favorites}
+                      icon={Star}
+                      onPick={(f) => onAdd({ name: f.name, ...(f.grams ? { grams: f.grams } : {}), kcal: f.kcal, protein: f.protein, carbs: f.carbs, fat: f.fat, meal })}
+                      onRemove={(f) => setFavorites((list) => list.filter((x) => x.id !== f.id))}
+                    />
+                  )}
+                  {recent.length > 0 && (
+                    <QuickList
+                      title="Zuletzt gegessen – Menge anpassen"
+                      items={recent}
+                      icon={History}
+                      onPick={(r) => (r.grams ? pick(per100Of(r), r.grams) : onAdd({ name: r.name, kcal: r.kcal, protein: r.protein, carbs: r.carbs, fat: r.fat, meal }))}
+                    />
+                  )}
+                  {favorites.length === 0 && recent.length === 0 && (
+                    <p className="py-4 text-center text-subhead text-label-2">Über 7.000 Lebensmittel mit Nährwerten pro 100 g.</p>
+                  )}
+                </>
+              )}
+
+              <button type="button" onClick={() => setMode('manual')} className="h-11 w-full rounded-2xl bg-fill text-body font-semibold hover:opacity-80">
+                Manuell eingeben
+              </button>
+              {db && <p className="text-caption text-label-2">{db.attribution}</p>}
             </div>
           )}
 
-          <label className="block text-subhead text-label-2">
-            Was hast du gegessen?
-            <input autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="z. B. Haferflocken mit Banane" className={field} />
-          </label>
+          {mode === 'amount' && picked && (
+            <div className="space-y-5">
+              <div>
+                <p className="text-headline font-semibold">{picked.name}</p>
+                <p className="text-footnote tabular-nums text-label-2">
+                  pro 100 g: {picked.kcal} kcal · P {fmt1(picked.protein)} · KH {fmt1(picked.carbs)} · F {fmt1(picked.fat)}
+                </p>
+              </div>
+              <label className="flex items-center justify-between gap-3 text-subhead text-label-2">
+                Menge
+                <span className="flex items-center gap-2">
+                  <input
+                    autoFocus
+                    inputMode="decimal"
+                    value={grams}
+                    onChange={(e) => setGrams(e.target.value.replace(/[^\d.,]/g, '').slice(0, 5))}
+                    onFocus={(e) => e.target.select()}
+                    className="h-11 w-24 rounded-xl border border-separator bg-bg px-3 text-right text-body text-label tabular-nums outline-none focus:border-label"
+                  />
+                  g
+                </span>
+              </label>
+              <div className="flex flex-wrap gap-2" aria-label="Menge schnell wählen">
+                {GRAM_STEPS.map((step) => (
+                  <button
+                    type="button"
+                    key={step}
+                    onClick={() => setGrams(String(step))}
+                    className={`h-9 rounded-full px-3 text-footnote font-semibold ${g === step ? 'bg-label text-on-label' : 'bg-fill text-label hover:opacity-80'}`}
+                  >
+                    {step} g
+                  </button>
+                ))}
+              </div>
+              <dl className="grid grid-cols-4 gap-2 rounded-2xl bg-bg p-3 text-center">
+                {[
+                  ['kcal', fmt(picks.kcal)],
+                  ['Protein', `${fmt1(picks.protein)} g`],
+                  ['KH', `${fmt1(picks.carbs)} g`],
+                  ['Fett', `${fmt1(picks.fat)} g`],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="text-footnote text-label-2">{label}</dt>
+                    <dd className="text-headline font-semibold tabular-nums">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <FavoriteToggle checked={favorite} onChange={setFavorite} hint="mit dieser Menge" />
+            </div>
+          )}
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <label className="block text-subhead text-label-2">
-              kcal
-              <input inputMode="decimal" value={form.kcal} onChange={set('kcal')} placeholder={autoKcal ? `≈ ${autoKcal}` : '0'} className={field} />
-            </label>
-            <label className="block text-subhead text-label-2">
-              Protein g
-              <input inputMode="decimal" value={form.protein} onChange={set('protein')} placeholder="0" className={field} />
-            </label>
-            <label className="block text-subhead text-label-2">
-              KH g
-              <input inputMode="decimal" value={form.carbs} onChange={set('carbs')} placeholder="0" className={field} />
-            </label>
-            <label className="block text-subhead text-label-2">
-              Fett g
-              <input inputMode="decimal" value={form.fat} onChange={set('fat')} placeholder="0" className={field} />
-            </label>
-          </div>
-          <p className="text-footnote text-label-2">Ohne kcal-Angabe rechnet LockedIn die kcal aus den Makros.</p>
-
-          <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-2xl bg-bg px-4 py-2">
-            <Star className="size-5 shrink-0 text-label-2" aria-hidden />
-            <span className="flex-1 text-body">Als Favorit speichern</span>
-            <input
-              type="checkbox"
-              checked={form.favorite}
-              onChange={(e) => setForm({ ...form, favorite: e.target.checked })}
-              className="size-5 accent-[var(--color-label)]"
-            />
-          </label>
+          {mode === 'manual' && (
+            <div className="space-y-5">
+              <label className="block text-subhead text-label-2">
+                Was hast du gegessen?
+                <input autoFocus value={manual.name} onChange={(e) => setManual({ ...manual, name: e.target.value })} placeholder="z. B. Pizza Margherita" className={field} />
+              </label>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <label className="block text-subhead text-label-2">
+                  kcal
+                  <input inputMode="decimal" value={manual.kcal} onChange={setM('kcal')} placeholder={autoKcal ? `≈ ${autoKcal}` : '0'} className={field} />
+                </label>
+                <label className="block text-subhead text-label-2">
+                  Protein g
+                  <input inputMode="decimal" value={manual.protein} onChange={setM('protein')} placeholder="0" className={field} />
+                </label>
+                <label className="block text-subhead text-label-2">
+                  KH g
+                  <input inputMode="decimal" value={manual.carbs} onChange={setM('carbs')} placeholder="0" className={field} />
+                </label>
+                <label className="block text-subhead text-label-2">
+                  Fett g
+                  <input inputMode="decimal" value={manual.fat} onChange={setM('fat')} placeholder="0" className={field} />
+                </label>
+              </div>
+              <p className="text-footnote text-label-2">Ohne kcal-Angabe rechnet LockedIn die kcal aus den Makros.</p>
+              <FavoriteToggle checked={favorite} onChange={setFavorite} />
+            </div>
+          )}
         </div>
       </form>
     </div>
+  )
+}
+
+const fmt1 = (v) => (Math.round(v * 10) / 10).toLocaleString('de-AT')
+
+/** Werte pro 100 g aus einem Eintrag mit Grammangabe zurückrechnen */
+const per100Of = (e) => {
+  const f = 100 / e.grams
+  return { name: e.name, kcal: Math.round(e.kcal * f), protein: e.protein * f, carbs: e.carbs * f, fat: e.fat * f }
+}
+
+function QuickList({ title, items, icon: Icon, onPick, onRemove }) {
+  return (
+    <div>
+      <p className="text-subhead text-label-2">{title}</p>
+      <ul className="mt-1.5 divide-y divide-separator overflow-hidden rounded-2xl bg-bg">
+        {items.map((f) => (
+          <li key={f.id ?? `${f.name}-${f.grams}`} className="flex items-center gap-1 pl-3">
+            <button type="button" onClick={() => onPick(f)} className="flex min-h-11 min-w-0 flex-1 items-center gap-2 py-1.5 text-left">
+              <Icon className="size-4 shrink-0 text-label-2" aria-hidden />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-body">
+                  {f.name}
+                  {f.grams ? <span className="text-label-2"> · {fmt(f.grams)} g</span> : null}
+                </span>
+                <span className="block text-footnote tabular-nums text-label-2">
+                  {fmt(f.kcal)} kcal · P {fmt(f.protein)} · KH {fmt(f.carbs)} · F {fmt(f.fat)}
+                </span>
+              </span>
+              <Plus className="size-5 shrink-0 text-label-2" aria-hidden />
+            </button>
+            {onRemove && (
+              <button
+                type="button"
+                onClick={() => onRemove(f)}
+                aria-label={`Favorit ${f.name} entfernen`}
+                className="grid size-11 shrink-0 place-items-center rounded-full text-label-2 hover:bg-fill hover:text-label"
+              >
+                <Trash2 className="size-4" />
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function FavoriteToggle({ checked, onChange, hint }) {
+  return (
+    <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-2xl bg-bg px-4 py-2">
+      <Star className="size-5 shrink-0 text-label-2" aria-hidden />
+      <span className="flex-1 text-body">
+        Als Favorit speichern{hint && <span className="text-footnote text-label-2"> ({hint})</span>}
+      </span>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="size-5 accent-[var(--color-label)]" />
+    </label>
   )
 }
