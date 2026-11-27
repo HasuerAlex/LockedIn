@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Check, Flame, Plus, Trash2 } from 'lucide-react'
 import { WEEKDAYS, WEEKDAYS_LONG, addDays, fmtDate, toKey, uid } from '../lib/utils'
+import { HABIT_ICONS, iconKeyOf, suggestIcon } from '../lib/habitIcons'
 
 /** Tage in Folge bis heute. Ist heute noch offen, zählt die Serie ab gestern – sie ist ja noch nicht gerissen. */
 function streakOf(isDone, today) {
@@ -17,6 +18,10 @@ const days = (n) => `${n} ${n === 1 ? 'Tag' : 'Tage'}`
 
 export default function HabitTracker({ weekStart, today, habits, setHabits, log, setLog, onDeleted }) {
   const [newHabit, setNewHabit] = useState('')
+  const [newIcon, setNewIcon] = useState(null) // null = Vorschlag nach Name
+  const [iconPickerFor, setIconPickerFor] = useState(null) // Habit-ID, deren Icon gerade geändert wird
+  const newIconKey = newIcon ?? suggestIcon(newHabit)
+  const NewIcon = HABIT_ICONS[newIconKey].icon
   const todayKey = toKey(today)
   const week = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
 
@@ -34,8 +39,14 @@ export default function HabitTracker({ weekStart, today, habits, setHabits, log,
     e.preventDefault()
     const name = newHabit.trim()
     if (!name) return
-    setHabits((h) => [...h, { id: uid(), name }])
+    setHabits((h) => [...h, { id: uid(), name, icon: newIconKey }])
     setNewHabit('')
+    setNewIcon(null)
+  }
+
+  const setIcon = (habitId, icon) => {
+    setHabits((list) => list.map((h) => (h.id === habitId ? { ...h, icon } : h)))
+    setIconPickerFor(null)
   }
 
   // Löschen ohne Rückfrage, dafür mit „Widerrufen“ (Habit inkl. Verlauf kommt zurück)
@@ -101,9 +112,21 @@ export default function HabitTracker({ weekStart, today, habits, setHabits, log,
           <ul className="mt-2 divide-y divide-separator">
             {habits.map((h) => {
               const streak = streakOf((key) => isDone(h.id, key), today)
+              const Icon = HABIT_ICONS[iconKeyOf(h)].icon
+              const picking = iconPickerFor === h.id
               return (
                 <li key={h.id} className="py-3">
                   <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setIconPickerFor(picking ? null : h.id)}
+                      aria-label={`Symbol für ${h.name} ändern`}
+                      aria-expanded={picking}
+                      className="-ml-1 grid size-11 shrink-0 place-items-center rounded-full"
+                    >
+                      <span className={`grid size-9 place-items-center rounded-xl ${picking ? 'bg-label text-on-label' : 'bg-fill text-label hover:opacity-80'}`}>
+                        <Icon className="size-5" aria-hidden />
+                      </span>
+                    </button>
                     <p className="min-w-0 flex-1 truncate text-headline font-semibold">{h.name}</p>
                     <span
                       className={`inline-flex items-center gap-1 text-subhead tabular-nums ${
@@ -122,6 +145,15 @@ export default function HabitTracker({ weekStart, today, habits, setHabits, log,
                       <Trash2 className="size-[18px]" />
                     </button>
                   </div>
+
+                  {picking && (
+                    <IconPicker
+                      label={`Symbol für ${h.name}`}
+                      value={iconKeyOf(h)}
+                      onChange={(icon) => setIcon(h.id, icon)}
+                      className="mt-2 mb-3"
+                    />
+                  )}
 
                   <div className="mt-1 grid grid-cols-7 gap-0.5">
                     {week.map((d, i) => {
@@ -159,7 +191,11 @@ export default function HabitTracker({ weekStart, today, habits, setHabits, log,
           </ul>
         )}
 
-        <form onSubmit={addHabit} className="mt-3 flex gap-2 border-t border-separator pt-4">
+        <form onSubmit={addHabit} className="mt-3 border-t border-separator pt-4">
+          <div className="flex items-center gap-2">
+          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-fill text-label" aria-hidden>
+            <NewIcon className="size-5" />
+          </span>
           <label className="sr-only" htmlFor="new-habit">
             Neue Routine
           </label>
@@ -179,17 +215,47 @@ export default function HabitTracker({ weekStart, today, habits, setHabits, log,
           >
             <Plus className="size-5" />
           </button>
+          </div>
+          {newHabit.trim() && (
+            <IconPicker label="Symbol für die neue Routine" value={newIconKey} onChange={setNewIcon} className="mt-3" />
+          )}
         </form>
       </div>
     </section>
   )
 }
 
+function IconPicker({ label, value, onChange, className = '' }) {
+  return (
+    <div role="radiogroup" aria-label={label} className={`grid grid-cols-7 gap-1 ${className}`}>
+      {Object.entries(HABIT_ICONS).map(([key, { icon: Icon, label: name }]) => {
+        const active = key === value
+        return (
+          <button
+            type="button"
+            key={key}
+            role="radio"
+            aria-checked={active}
+            aria-label={name}
+            title={name}
+            onClick={() => onChange(key)}
+            className={`mx-auto grid aspect-square w-full max-w-11 place-items-center rounded-xl transition-colors ${
+              active ? 'bg-label text-on-label' : 'bg-fill text-label hover:opacity-80'
+            }`}
+          >
+            <Icon className="size-5" aria-hidden />
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 /** Grundpunkte – Startliste für alle, die noch keine eigenen Habits haben */
 export const DEFAULT_HABITS = [
-  { id: 'water', name: 'Wasser getrunken' },
-  { id: 'sport', name: 'Sport gemacht' },
-  { id: 'sleep', name: 'Genug geschlafen' },
+  { id: 'water', name: 'Wasser getrunken', icon: 'water' },
+  { id: 'sport', name: 'Sport gemacht', icon: 'sport' },
+  { id: 'sleep', name: 'Genug geschlafen', icon: 'sleep' },
 ]
 
 /** Alte Standardliste früherer Versionen (8 h Schlaf, 3 l Wasser, Mobility, Protein-Ziel) */
