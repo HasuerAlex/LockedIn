@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, Undo2, X } from 'lucide-react'
 import GoalBanner from './components/GoalBanner'
 import WeeklyPlan from './components/WeeklyPlan'
-import HabitTracker from './components/HabitTracker'
+import HabitTracker, { DEFAULT_HABITS, isOldDefaultHabits } from './components/HabitTracker'
 import AccountBar from './components/AccountBar'
 import { useAuth, useSyncedState } from './lib/sync'
 import { mondayOf, addDays, toKey, fmtDate, isoWeek, startOfDay } from './lib/utils'
@@ -35,8 +35,14 @@ export default function App() {
   const onSyncError = useCallback((e) => setSyncError(e?.code || e?.message || 'unbekannt'), [])
   const [goal, setGoal] = useSyncedState('goal', null, user, onSyncError)
   const [plans, setPlans] = useSyncedState('plans', {}, user, onSyncError)
-  const [habits, setHabits] = useSyncedState('habits', [], user, onSyncError)
+  const [habits, setHabits] = useSyncedState('habits', DEFAULT_HABITS, user, onSyncError)
   const [habitLog, setHabitLog] = useSyncedState('habitLog', {}, user, onSyncError)
+
+  // Einmalige Umstellung: unveränderte alte Standard-Habits durch die neuen Grundpunkte ersetzen
+  // (gleiche IDs für Wasser und Schlaf → deren Verlauf bleibt erhalten)
+  useEffect(() => {
+    if (user && isOldDefaultHabits(habits)) setHabits(DEFAULT_HABITS)
+  }, [user, habits, setHabits])
 
   // Widerrufen-Stapel: Löschen fragt nicht nach, lässt sich aber rückgängig machen.
   // Bleibt sichtbar, bis man ihn schließt (kein Timer).

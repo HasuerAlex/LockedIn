@@ -30,6 +30,7 @@ if (syncAvailable) {
     connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
     connectFirestoreEmulator(db, '127.0.0.1', 8080)
     // Test-Login ohne Google-Pop-up (der Emulator akzeptiert ein unsigniertes Google-Token)
+    window.__uid = () => auth.currentUser?.uid
     window.__testSignIn = (email) =>
       signInWithCredential(auth, GoogleAuthProvider.credential(JSON.stringify({ sub: email, email, email_verified: true })))
   }

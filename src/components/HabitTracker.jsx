@@ -184,3 +184,13 @@ export default function HabitTracker({ weekStart, today, habits, setHabits, log,
     </section>
   )
 }
+
+/** Grundpunkte – Startliste für alle, die noch keine eigenen Habits haben */
+export const DEFAULT_HABITS = [
+  { id: 'water', name: 'Wasser getrunken' },
+  { id: 'sport', name: 'Sport gemacht' },
+  { id: 'sleep', name: 'Genug geschlafen' },
+]
+
+/** Alte Standardliste früherer Versionen (8 h Schlaf, 3 l Wasser, Mobility, Protein-Ziel) */
+export const isOldDefaultHabits = (habits) => habits.map((h) => h.id).join() === 'sleep,water,mobility,protein'
