@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Check, Flame, Plus, Trash2, Sparkles, ListChecks, Crown } from 'lucide-react'
-import { WEEKDAYS, addDays, fmtDate, toKey, uid } from '../lib/utils'
+import { Check, Flame, Plus, Trash2 } from 'lucide-react'
+import { WEEKDAYS, WEEKDAYS_LONG, addDays, fmtDate, toKey, uid } from '../lib/utils'
 
-/** Tage in Folge bis heute. Ist heute noch offen, zählt die Serie ab gestern (sie ist noch nicht gerissen). */
+/** Tage in Folge bis heute. Ist heute noch offen, zählt die Serie ab gestern – sie ist ja noch nicht gerissen. */
 function streakOf(isDone, today) {
   let day = isDone(toKey(today)) ? today : addDays(today, -1)
   let count = 0
@@ -13,10 +13,12 @@ function streakOf(isDone, today) {
   return count
 }
 
-export default function HabitTracker({ weekStart, today, habits, setHabits, log, setLog }) {
+const days = (n) => `${n} ${n === 1 ? 'Tag' : 'Tage'}`
+
+export default function HabitTracker({ weekStart, today, habits, setHabits, log, setLog, onDeleted }) {
   const [newHabit, setNewHabit] = useState('')
   const todayKey = toKey(today)
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  const week = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
 
   const isDone = (habitId, key) => Boolean(log[habitId]?.[key])
 
@@ -36,203 +38,156 @@ export default function HabitTracker({ weekStart, today, habits, setHabits, log,
     setNewHabit('')
   }
 
-  const removeHabit = (id) => {
-    const h = habits.find((x) => x.id === id)
-    if (!confirm(`Habit „${h?.name}“ wirklich löschen? Der Verlauf geht verloren.`)) return
-    setHabits((list) => list.filter((x) => x.id !== id))
+  // Löschen ohne Rückfrage, dafür mit „Widerrufen“ (Habit inkl. Verlauf kommt zurück)
+  const removeHabit = (habit) => {
+    const index = habits.findIndex((h) => h.id === habit.id)
+    const history = log[habit.id]
+    setHabits((list) => list.filter((h) => h.id !== habit.id))
     setLog((l) => {
-      const { [id]: _, ...rest } = l
+      const { [habit.id]: _, ...rest } = l
       return rest
+    })
+    onDeleted(`„${habit.name}“ gelöscht`, () => {
+      setHabits((list) => {
+        const next = [...list]
+        next.splice(index, 0, habit)
+        return next
+      })
+      if (history) setLog((l) => ({ ...l, [habit.id]: history }))
     })
   }
 
   const doneToday = habits.filter((h) => isDone(h.id, todayKey)).length
-  const todayPct = habits.length ? doneToday / habits.length : 0
-
-  // „Perfekte Tage“: alle Habits erledigt
   const perfectStreak = habits.length ? streakOf((key) => habits.every((h) => isDone(h.id, key)), today) : 0
 
-  const weekTotal = habits.length * days.filter((d) => d <= today).length
-  const weekDone = habits.reduce((a, h) => a + days.filter((d) => d <= today && isDone(h.id, toKey(d))).length, 0)
-
   return (
-    <section className="rounded-3xl border border-white/10 bg-slate-900/60 p-5 sm:p-6">
-      <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-2 text-xl font-bold text-white">
-            <ListChecks className="h-5 w-5 text-emerald-300" /> Habit-Tracker
-          </h2>
-          <p className="text-sm text-slate-400">Die kleinen Dinge, die das Rennen entscheiden.</p>
-        </div>
-      </header>
+    <section aria-labelledby="habits-title" className="space-y-4">
+      <div className="px-1">
+        <h2 id="habits-title" className="text-title-2 font-bold">
+          Habits
+        </h2>
+      </div>
 
-      {/* Kennzahlen */}
-      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="flex items-center gap-4 rounded-2xl bg-slate-950/60 p-4 ring-1 ring-white/5">
-          <ProgressRing value={todayPct} />
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">Heute</div>
-            <div className="text-2xl font-black tabular-nums text-white">
-              {doneToday}
-              <span className="text-base font-semibold text-slate-500"> / {habits.length}</span>
-            </div>
-            {habits.length > 0 && doneToday === habits.length && (
-              <div className="text-xs font-semibold text-emerald-300">Alles erledigt! 💪</div>
-            )}
-          </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-3xl bg-surface p-4">
+          <p className="text-subhead text-label-2">Heute erledigt</p>
+          <p className="text-title-2 font-bold tabular-nums">
+            {doneToday} <span className="font-semibold text-label-2">von {habits.length}</span>
+          </p>
         </div>
-        <div className="flex items-center gap-4 rounded-2xl bg-slate-950/60 p-4 ring-1 ring-white/5">
-          <div className="rounded-2xl bg-amber-400/10 p-3 text-amber-300">
-            <Crown className="h-7 w-7" />
-          </div>
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">Perfekte Tage in Folge</div>
-            <div className="text-2xl font-black tabular-nums text-white">{perfectStreak}</div>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 rounded-2xl bg-slate-950/60 p-4 ring-1 ring-white/5">
-          <div className="rounded-2xl bg-emerald-400/10 p-3 text-emerald-300">
-            <Sparkles className="h-7 w-7" />
-          </div>
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">Diese Woche</div>
-            <div className="text-2xl font-black tabular-nums text-white">
-              {weekTotal ? Math.round((weekDone / weekTotal) * 100) : 0}%
-              <span className="ml-1 text-base font-semibold text-slate-500">
-                ({weekDone}/{weekTotal})
-              </span>
-            </div>
-          </div>
+        <div className="rounded-3xl bg-surface p-4">
+          <p className="text-subhead text-label-2">Perfekte Tage</p>
+          <p className="text-title-2 font-bold tabular-nums">{days(perfectStreak)}</p>
         </div>
       </div>
 
-      {/* Tabelle */}
-      <div className="-mx-1 overflow-x-auto px-1">
-        <table className="w-full min-w-[640px] border-separate border-spacing-y-2">
-          <thead>
-            <tr className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              <th className="px-3 text-left font-semibold">Routine</th>
-              {days.map((d, i) => {
-                const isToday = toKey(d) === todayKey
-                return (
-                  <th key={i} className={`w-14 text-center font-semibold ${isToday ? 'text-emerald-300' : ''}`}>
-                    <div>{WEEKDAYS[i]}</div>
-                    <div className="text-[10px] font-medium normal-case tracking-normal opacity-70">{fmtDate(d)}</div>
-                  </th>
-                )
-              })}
-              <th className="w-24 text-center font-semibold">Streak</th>
-              <th className="w-10" />
-            </tr>
-          </thead>
-          <tbody>
+      <div className="rounded-3xl bg-surface p-4 sm:p-5">
+        {/* Kopfzeile der Woche – gleiche 7 Spalten wie jede Habit-Zeile */}
+        <div className="grid grid-cols-7 gap-0.5 text-center" aria-hidden>
+          {week.map((d, i) => {
+            const isToday = toKey(d) === todayKey
+            return (
+              <div key={i} className={`text-caption ${isToday ? 'font-bold text-label' : 'text-label-2'}`}>
+                <div className="text-footnote font-semibold">{WEEKDAYS[i]}</div>
+                <div>{fmtDate(d, { day: 'numeric' })}</div>
+              </div>
+            )
+          })}
+        </div>
+
+        {habits.length === 0 ? (
+          <p className="py-6 text-center text-subhead text-label-2">Noch keine Habits. Leg unten deine erste Routine an.</p>
+        ) : (
+          <ul className="mt-2 divide-y divide-separator">
             {habits.map((h) => {
               const streak = streakOf((key) => isDone(h.id, key), today)
               return (
-                <tr key={h.id} className="group">
-                  <td className="rounded-l-2xl bg-slate-950/60 px-3 py-3 text-sm font-semibold text-white">{h.name}</td>
-                  {days.map((d) => {
-                    const key = toKey(d)
-                    const done = isDone(h.id, key)
-                    const future = d > today
-                    const isToday = key === todayKey
-                    return (
-                      <td key={key} className={`bg-slate-950/60 py-3 text-center ${isToday ? 'bg-emerald-400/[0.05]' : ''}`}>
-                        <button
-                          onClick={() => toggle(h.id, key)}
-                          disabled={future}
-                          aria-label={`${h.name} am ${fmtDate(d)} ${done ? 'offen' : 'erledigt'} markieren`}
-                          className={`mx-auto flex h-9 w-9 items-center justify-center rounded-xl transition-all ${
-                            done
-                              ? 'scale-100 bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/20'
-                              : future
-                                ? 'cursor-not-allowed bg-white/[0.02] ring-1 ring-white/5'
-                                : `bg-white/5 ring-1 hover:bg-white/10 ${isToday ? 'ring-emerald-400/60' : 'ring-white/10'}`
-                          }`}
-                        >
-                          {done && <Check className="h-5 w-5" strokeWidth={3} />}
-                        </button>
-                      </td>
-                    )
-                  })}
-                  <td className="bg-slate-950/60 py-3 text-center">
+                <li key={h.id} className="py-3">
+                  <div className="flex items-center gap-2">
+                    <p className="min-w-0 flex-1 truncate text-headline font-semibold">{h.name}</p>
                     <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-bold tabular-nums ${
-                        streak > 0 ? 'bg-orange-400/15 text-orange-300' : 'bg-white/5 text-slate-500'
+                      className={`inline-flex items-center gap-1 text-subhead tabular-nums ${
+                        streak > 0 ? 'font-semibold text-label' : 'text-label-2'
                       }`}
+                      aria-label={`Serie: ${days(streak)} in Folge`}
                     >
-                      <Flame className={`h-4 w-4 ${streak >= 7 ? 'fill-orange-400' : ''}`} />
-                      {streak}
+                      <Flame className="size-4" aria-hidden />
+                      {days(streak)}
                     </span>
-                  </td>
-                  <td className="rounded-r-2xl bg-slate-950/60 pr-2 text-center">
                     <button
-                      onClick={() => removeHabit(h.id)}
-                      title="Habit löschen"
-                      className="rounded-lg p-1.5 text-slate-600 opacity-0 transition hover:bg-rose-500/20 hover:text-rose-300 group-hover:opacity-100 focus:opacity-100"
+                      onClick={() => removeHabit(h)}
+                      aria-label={`${h.name} löschen`}
+                      className="-mr-2 grid size-11 place-items-center rounded-full text-label-2 hover:bg-fill hover:text-label"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="size-[18px]" />
                     </button>
-                  </td>
-                </tr>
+                  </div>
+
+                  <div className="mt-1 grid grid-cols-7 gap-0.5">
+                    {week.map((d, i) => {
+                      const key = toKey(d)
+                      const done = isDone(h.id, key)
+                      const future = d > today
+                      const isToday = key === todayKey
+                      return (
+                        <div key={key} className="grid place-items-center">
+                          <button
+                            role="checkbox"
+                            aria-checked={done}
+                            aria-label={`${h.name}, ${WEEKDAYS_LONG[i]} ${fmtDate(d)}`}
+                            onClick={() => toggle(h.id, key)}
+                            disabled={future}
+                            className={`grid aspect-square w-full max-w-11 place-items-center rounded-full border-2 transition-colors ${
+                              done
+                                ? 'border-label bg-label text-on-label'
+                                : future
+                                  ? 'cursor-not-allowed border-dashed border-separator'
+                                  : isToday
+                                    ? 'border-label hover:bg-fill'
+                                    : 'border-label-2/60 hover:border-label'
+                            }`}
+                          >
+                            {done && <Check className="size-5" strokeWidth={3} />}
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </li>
               )
             })}
-            {habits.length === 0 && (
-              <tr>
-                <td colSpan={10} className="rounded-2xl bg-slate-950/40 py-8 text-center text-sm text-slate-500">
-                  Noch keine Habits – leg unten deine erste Routine an.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+          </ul>
+        )}
+
+        <form onSubmit={addHabit} className="mt-3 flex gap-2 border-t border-separator pt-4">
+          <label className="sr-only" htmlFor="new-habit">
+            Neue Routine
+          </label>
+          <input
+            id="new-habit"
+            value={newHabit}
+            onChange={(e) => setNewHabit(e.target.value)}
+            placeholder="Neue Routine, z. B. Dehnen"
+            enterKeyHint="done"
+            className="min-w-0 flex-1 rounded-xl border border-separator bg-bg px-3 py-2.5 text-body outline-none focus:border-label"
+          />
+          <button
+            type="submit"
+            disabled={!newHabit.trim()}
+            aria-label="Routine hinzufügen"
+            className="grid size-11 shrink-0 place-items-center rounded-full bg-label text-on-label hover:opacity-85 disabled:opacity-30"
+          >
+            <Plus className="size-5" />
+          </button>
+        </form>
       </div>
-
-      <form onSubmit={addHabit} className="mt-4 flex gap-2">
-        <input
-          value={newHabit}
-          onChange={(e) => setNewHabit(e.target.value)}
-          placeholder="Neue Routine, z. B. 10 min Dehnen"
-          className="min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-950 px-4 py-2.5 text-sm text-white outline-none placeholder:text-slate-600 focus:border-emerald-400"
-        />
-        <button
-          type="submit"
-          disabled={!newHabit.trim()}
-          className="inline-flex items-center gap-2 rounded-xl bg-emerald-400 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-emerald-300 disabled:opacity-40"
-        >
-          <Plus className="h-4 w-4" /> Hinzufügen
-        </button>
-      </form>
     </section>
-  )
-}
-
-function ProgressRing({ value, size = 56 }) {
-  const stroke = 6
-  const r = (size - stroke) / 2
-  const c = 2 * Math.PI * r
-  return (
-    <svg width={size} height={size} className="-rotate-90 shrink-0">
-      <circle cx={size / 2} cy={size / 2} r={r} stroke="currentColor" strokeWidth={stroke} fill="none" className="text-white/5" />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        stroke="currentColor"
-        strokeWidth={stroke}
-        fill="none"
-        strokeLinecap="round"
-        strokeDasharray={c}
-        strokeDashoffset={c * (1 - value)}
-        className="text-emerald-400 transition-all duration-500"
-      />
-    </svg>
   )
 }
 
 export const DEFAULT_HABITS = [
   { id: 'sleep', name: '😴 8 h Schlaf' },
-  { id: 'water', name: '💧 3 L Wasser' },
+  { id: 'water', name: '💧 3 l Wasser' },
   { id: 'mobility', name: '🧘 Mobility' },
   { id: 'protein', name: '🥩 Protein-Ziel' },
 ]

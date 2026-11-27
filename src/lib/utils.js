@@ -94,46 +94,10 @@ export const fmtHours = (min) => (min / 60).toLocaleString('de-AT', { maximumFra
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
 
 /* ---------- Sportarten ---------- */
-// Klassen stehen ausgeschrieben, damit Tailwind sie erkennt.
+// Klassen stehen ausgeschrieben, damit Tailwind sie erkennt. Farben kommen aus den Tokens in index.css.
 export const SPORTS = {
-  swim: {
-    label: 'Schwimmen',
-    icon: Waves,
-    text: 'text-cyan-300',
-    bg: 'bg-cyan-400',
-    soft: 'bg-cyan-400/10',
-    border: 'border-cyan-400',
-    ring: 'ring-cyan-400/40',
-    unit: 'km',
-  },
-  bike: {
-    label: 'Rad',
-    icon: Bike,
-    text: 'text-orange-300',
-    bg: 'bg-orange-400',
-    soft: 'bg-orange-400/10',
-    border: 'border-orange-400',
-    ring: 'ring-orange-400/40',
-    unit: 'km',
-  },
-  run: {
-    label: 'Laufen',
-    icon: Footprints,
-    text: 'text-emerald-300',
-    bg: 'bg-emerald-400',
-    soft: 'bg-emerald-400/10',
-    border: 'border-emerald-400',
-    ring: 'ring-emerald-400/40',
-    unit: 'km',
-  },
-  strength: {
-    label: 'Kraft',
-    icon: Dumbbell,
-    text: 'text-violet-300',
-    bg: 'bg-violet-400',
-    soft: 'bg-violet-400/10',
-    border: 'border-violet-400',
-    ring: 'ring-violet-400/40',
-    unit: null,
-  },
+  swim: { label: 'Schwimmen', icon: Waves, text: 'text-swim', bg: 'bg-swim', tint: 'bg-swim/15', border: 'border-swim' },
+  bike: { label: 'Rad', icon: Bike, text: 'text-bike', bg: 'bg-bike', tint: 'bg-bike/15', border: 'border-bike' },
+  run: { label: 'Laufen', icon: Footprints, text: 'text-run', bg: 'bg-run', tint: 'bg-run/15', border: 'border-run' },
+  strength: { label: 'Kraft', icon: Dumbbell, text: 'text-strength', bg: 'bg-strength', tint: 'bg-strength/15', border: 'border-strength' },
 }

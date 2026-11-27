@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight, Activity } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { ChevronLeft, ChevronRight, Undo2, X } from 'lucide-react'
 import GoalBanner, { defaultGoal } from './components/GoalBanner'
 import WeeklyPlan, { samplePlan } from './components/WeeklyPlan'
 import HabitTracker, { DEFAULT_HABITS } from './components/HabitTracker'
@@ -33,74 +33,108 @@ export default function App() {
   const [habits, setHabits] = useLocalStorage('habits', DEFAULT_HABITS)
   const [habitLog, setHabitLog] = useLocalStorage('habitLog', {})
 
+  // Widerrufen-Stapel: Löschen fragt nicht nach, lässt sich aber rückgängig machen.
+  // Bleibt sichtbar, bis man ihn schließt (kein Timer).
+  const [undoStack, setUndoStack] = useState([])
+  const onDeleted = useCallback((message, restore) => setUndoStack((s) => [...s, { message, restore }]), [])
+  const undo = () => {
+    const last = undoStack.at(-1)
+    if (!last) return
+    last.restore()
+    setUndoStack((s) => s.slice(0, -1))
+  }
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'z' && !/INPUT|TEXTAREA/.test(document.activeElement?.tagName)) {
+        e.preventDefault()
+        undo()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  })
+
   const isCurrentWeek = toKey(weekStart) === toKey(currentMonday)
   const weekEnd = addDays(weekStart, 6)
+  const lastUndo = undoStack.at(-1)
 
   return (
-    <div className="min-h-screen bg-slate-950 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.08),transparent_60%)]">
-      <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:py-10">
-        <nav className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.2em] text-slate-300">
-            <span className="rounded-xl bg-gradient-to-br from-cyan-400 via-orange-400 to-emerald-400 p-1.5 text-slate-950">
-              <Activity className="h-4 w-4" strokeWidth={3} />
-            </span>
-            Athlete HQ
-          </div>
-          <div className="text-sm text-slate-400">
-            {today.toLocaleDateString('de-AT', { weekday: 'long', day: 'numeric', month: 'long' })}
-          </div>
-        </nav>
-
+    <div className="min-h-dvh pb-28">
+      <main className="mx-auto max-w-6xl space-y-8 px-4 pt-[max(1.5rem,env(safe-area-inset-top))] sm:px-6 lg:pt-10">
         <GoalBanner goal={goal} setGoal={setGoal} today={today} />
 
-        {/* Wochen-Navigation – gilt für Trainingsplan und Habits */}
-        <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-between">
-          <div className="hidden text-sm text-slate-500 sm:block">Woche auswählen</div>
-          <div className="flex items-center gap-1 rounded-2xl bg-slate-900/80 p-1 ring-1 ring-white/10">
+        {/* Woche – gilt für Training und Habits */}
+        <nav aria-label="Woche wählen" className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1">
             <button
               onClick={() => setWeekStart(addDays(weekStart, -7))}
-              className="rounded-xl p-2 text-slate-400 hover:bg-white/10 hover:text-white"
               aria-label="Vorherige Woche"
+              className="grid size-11 place-items-center rounded-full bg-surface hover:bg-fill"
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ChevronLeft className="size-5" />
             </button>
-            <div className="min-w-48 px-3 text-center">
-              <div className="text-sm font-bold text-white">KW {isoWeek(weekStart)}</div>
-              <div className="text-xs text-slate-400">
-                {fmtDate(weekStart)} – {fmtDate(weekEnd, { day: '2-digit', month: '2-digit', year: 'numeric' })}
-              </div>
-            </div>
             <button
               onClick={() => setWeekStart(addDays(weekStart, 7))}
-              className="rounded-xl p-2 text-slate-400 hover:bg-white/10 hover:text-white"
               aria-label="Nächste Woche"
+              className="grid size-11 place-items-center rounded-full bg-surface hover:bg-fill"
             >
-              <ChevronRight className="h-5 w-5" />
+              <ChevronRight className="size-5" />
             </button>
+            <p className="ml-2" aria-live="polite">
+              <span className="block text-headline font-semibold">
+                {isCurrentWeek ? 'Diese Woche' : `KW ${isoWeek(weekStart)}`}
+              </span>
+              <span className="block text-footnote text-label-2">
+                {fmtDate(weekStart)} – {fmtDate(weekEnd, { day: '2-digit', month: '2-digit', year: 'numeric' })}
+              </span>
+            </p>
           </div>
-          <button
-            onClick={() => setWeekStart(currentMonday)}
-            disabled={isCurrentWeek}
-            className="rounded-xl px-3 py-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-400/10 disabled:hidden sm:disabled:invisible sm:disabled:block"
-          >
-            Zur aktuellen Woche
-          </button>
+          {!isCurrentWeek && (
+            <button
+              onClick={() => setWeekStart(currentMonday)}
+              className="h-11 rounded-full bg-surface px-4 text-subhead font-semibold hover:bg-fill"
+            >
+              Heute
+            </button>
+          )}
+        </nav>
+
+        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-8 lg:grid-cols-[minmax(0,1fr)_400px]">
+          <WeeklyPlan weekStart={weekStart} today={today} plans={plans} setPlans={setPlans} onDeleted={onDeleted} />
+          <div className="lg:sticky lg:top-6">
+            <HabitTracker
+              weekStart={weekStart}
+              today={today}
+              habits={habits}
+              setHabits={setHabits}
+              log={habitLog}
+              setLog={setHabitLog}
+              onDeleted={onDeleted}
+            />
+          </div>
         </div>
 
-        <WeeklyPlan weekStart={weekStart} today={today} plans={plans} setPlans={setPlans} />
-        <HabitTracker
-          weekStart={weekStart}
-          today={today}
-          habits={habits}
-          setHabits={setHabits}
-          log={habitLog}
-          setLog={setHabitLog}
-        />
+        <footer className="text-center text-footnote text-label-2">Deine Daten bleiben in diesem Browser.</footer>
+      </main>
 
-        <footer className="pb-4 text-center text-xs text-slate-600">
-          Alle Daten werden lokal in deinem Browser gespeichert. Swim · Bike · Run 🏊‍♂️🚴‍♀️🏃
-        </footer>
-      </div>
+      {lastUndo && (
+        <div
+          role="status"
+          className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-md items-center gap-1 rounded-2xl bg-label py-1.5 pr-1.5 pl-4 text-on-label shadow-2xl"
+        >
+          <p className="min-w-0 flex-1 truncate text-subhead">{lastUndo.message}</p>
+          <button onClick={undo} className="inline-flex h-11 items-center gap-1.5 rounded-full px-3 text-subhead font-semibold hover:bg-on-label/15">
+            <Undo2 className="size-4" /> Widerrufen
+          </button>
+          <button
+            onClick={() => setUndoStack([])}
+            aria-label="Hinweis schließen"
+            className="grid size-11 place-items-center rounded-full hover:bg-on-label/15"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+      )}
     </div>
   )
 }
